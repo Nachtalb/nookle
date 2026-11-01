@@ -446,24 +446,17 @@ async fn full_flow() {
     let reloaded = open_db(&app.cfg).unwrap().items;
     assert_eq!(reloaded.len(), app.items.read().unwrap().len());
 
-    // records saved before `reviewed_at` existed: marked when their tags differ from the tagger's
+    // marks guessed by an earlier start (stamped with the upload time) are cleared on load
     let db = rusqlite::Connection::open(app.cfg.data.join("nookle.db")).unwrap();
-    let legacy = |id: &str, tags: Value, ai: Value| {
-        let mut rec: Value = serde_json::to_value(reloaded.values().next().unwrap()).unwrap();
-        rec["item"]["id"] = json!(id);
-        rec["item"]["tags"] = tags;
-        rec["item"].as_object_mut().unwrap().remove("reviewed_at");
-        rec["ai_tags"] = ai;
-        db.execute(
-            "INSERT INTO items (id, rec) VALUES (?1, ?2)",
-            (id, rec.to_string()),
-        )
-        .unwrap();
-    };
-    legacy("legacyAI", json!(["cat", "😺"]), json!(["😺", "cat"]));
-    legacy("legacyHd", json!(["cat", "mine"]), json!(["cat"]));
+    let mut rec: Value = serde_json::to_value(reloaded.values().next().unwrap()).unwrap();
+    rec["item"]["id"] = json!("guessed1");
+    rec["item"]["reviewed_at"] = rec["item"]["added_at"].clone();
+    db.execute(
+        "INSERT INTO items (id, rec) VALUES (?1, ?2)",
+        ("guessed1", rec.to_string()),
+    )
+    .unwrap();
     let items = open_db(&app.cfg).unwrap().items;
-    assert!(items["legacyAI"].item.reviewed_at.is_none());
-    assert!(items["legacyHd"].item.reviewed_at.is_some());
+    assert!(items["guessed1"].item.reviewed_at.is_none());
     let _ = std::fs::remove_dir_all(dir);
 }
