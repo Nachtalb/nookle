@@ -468,9 +468,20 @@ pub fn clean_tags(tags: impl IntoIterator<Item = String>) -> Vec<String> {
     v
 }
 
-/// Drops the words an emoji in `tags` already says: its Telegram keywords (`smirk` next to 😏)
-/// and alias words mapped to it (`smug` -> 😏). The emoji are what search finds them by anyway.
+/// Says tagger words as emoji where an emoji says them: a word that is the keyword of exactly
+/// one emoji becomes it (`thumbs up` -> 👍), and words an emoji in `tags` already says go: its
+/// Telegram keywords (`smirk` next to 😏) and alias words mapped to it (`smug` -> 😏). Search
+/// finds the emoji by those words anyway.
 pub fn drop_covered(tags: Vec<String>, aliases: &crate::state::Aliases) -> Vec<String> {
+    let mut tags: Vec<String> = tags
+        .into_iter()
+        .map(|t| match nookle_core::query::keyword_emoji(&t) {
+            Some(e) if nookle_core::query::split_emoji(&t).is_none() => e.to_string(),
+            _ => t,
+        })
+        .collect();
+    tags.sort();
+    tags.dedup();
     let emoji: Vec<&String> = tags
         .iter()
         .filter(|t| nookle_core::query::split_emoji(t).is_some())

@@ -226,21 +226,32 @@ impl App {
             .unwrap()
             .values()
             .filter_map(|r| {
-                let gone: Vec<String> = r
-                    .ai_tags
-                    .iter()
-                    .filter(|t| {
-                        !crate::routes::drop_covered(r.item.tags.clone(), &aliases).contains(t)
-                    })
-                    .cloned()
+                let ai = crate::routes::drop_covered(r.ai_tags.clone(), &aliases);
+                // emoji the item already has by hand count as covering too
+                let all = crate::routes::drop_covered(
+                    r.item
+                        .tags
+                        .iter()
+                        .filter(|t| !r.ai_tags.contains(t))
+                        .cloned()
+                        .chain(ai)
+                        .collect(),
+                    &aliases,
+                );
+                let ai: Vec<String> = all
+                    .into_iter()
+                    .filter(|t| !r.item.tags.contains(t) || r.ai_tags.contains(t))
                     .collect();
-                (!gone.is_empty()).then(|| (r.item.id.clone(), gone))
+                (ai != r.ai_tags).then(|| (r.item.id.clone(), ai))
             })
             .collect();
-        for (id, gone) in &todo {
+        for (id, ai) in &todo {
             self.update(id, |r| {
-                r.item.tags.retain(|t| !gone.contains(t));
-                r.ai_tags.retain(|t| !gone.contains(t));
+                let old = std::mem::replace(&mut r.ai_tags, ai.clone());
+                r.item.tags.retain(|t| !old.contains(t));
+                r.item.tags.extend(ai.iter().cloned());
+                r.item.tags.sort();
+                r.item.tags.dedup();
             });
         }
         todo.len()

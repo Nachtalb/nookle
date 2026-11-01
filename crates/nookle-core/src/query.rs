@@ -37,6 +37,24 @@ pub fn emoji_keywords(emoji: &str) -> Option<&'static [String]> {
         .map(Vec::as_slice)
 }
 
+/// The one emoji a keyword names, if it names exactly one (`thumbs up` -> 👍; `smile` names many).
+pub fn keyword_emoji(word: &str) -> Option<&'static str> {
+    static ONE: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
+        let mut by_kw: HashMap<&'static str, Vec<&'static str>> = HashMap::new();
+        for (e, kws) in EMOJI.0.iter() {
+            for k in kws {
+                by_kw.entry(k.as_str()).or_default().push(e.as_str());
+            }
+        }
+        by_kw
+            .into_iter()
+            .filter(|(_, es)| es.len() == 1)
+            .map(|(k, es)| (k, es[0]))
+            .collect()
+    });
+    ONE.get(word).copied()
+}
+
 /// Every emoji with its keywords, one per line (`😏 smirk, smug, …`), sorted, so the text is the same
 /// on every call: the tagger's emotion mapper keeps it as a cached prompt prefix.
 pub fn emoji_listing() -> String {

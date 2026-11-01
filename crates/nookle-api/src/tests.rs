@@ -341,10 +341,11 @@ async fn full_flow() {
         .json(
             "POST",
             &format!("/api/items/{id}/analysis"),
-            Some(json!({"tags": ["😏", "smirk", "sly", "cat"], "text": "", "style": "anime"})),
+            Some(json!({"tags": ["😏", "smirk", "sly", "cat", "thumbs up", "smile"], "text": "", "style": "anime"})),
         )
         .await;
-    assert_eq!(it["tags"], json!(["cat", "😏"]));
+    // 'thumbs up' names only 👍 and becomes it; 'smile' names many emoji and stays a word
+    assert_eq!(it["tags"], json!(["cat", "smile", "👍", "😏"]));
     assert_eq!(
         ro_t.json("PUT", "/api/aliases", Some(json!({"x": []})))
             .await
