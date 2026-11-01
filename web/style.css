@@ -179,3 +179,7 @@ header button.icon { display: inline-flex; align-items: center; justify-content:
 
 .tag-editor .chip:has(.chip-label:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
 .tag-editor .chip-label:focus-visible { outline: none; }
+
+#item-info.editing > .text, #item-info.editing .ro { display: none; }
+#item-info #edit-form { margin: .6em 0; }
+.actions .icon.active { color: var(--accent); border-color: var(--accent); }

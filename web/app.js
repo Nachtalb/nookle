@@ -277,13 +277,13 @@ function showItem(it) {
   const opened = current?.id !== it.id || !$('#item').open;
   current = it;
   if (opened && desktop.matches) queueMicrotask(() => $('#item-info .tag-input')?.focus());
-  $('#edit-form').hidden = true;
+  setEditing(false);
   $('#item-title').textContent = it.id;
   const m = it.status !== 'ready' ? el('p', { className: 'muted', textContent: it.status === 'failed' ? 'Failed: ' + it.error : 'Processing…' })
     : it.mime === 'video/mp4' ? el('video', { src: it.url, controls: true, loop: true, playsInline: true, autoplay: true })
       : el('img', { src: it.url, alt: it.text });
   $('#item-media').replaceChildren(m);
-  const row = (k, v) => v || v === 0 ? [el('dt', { textContent: k }), el('dd', {}, v)] : [];
+  const row = (k, v, cls = '') => v || v === 0 ? [el('dt', { className: cls, textContent: k }), el('dd', { className: cls }, v)] : [];
   const hl = (route().q && highlights.get(it.id)) || { tags: [], text: [] };
   const tags = tagEditor(it.tags, {
     hits: hl.tags,
@@ -298,8 +298,8 @@ function showItem(it) {
     it.text ? markedText(it.text, hl.text) : '',
     el('dl', {},
       ...row('Kind', [it.kind, it.width && `${it.width}×${it.height}`, fmtDuration(it.duration_ms), it.has_audio ? 'sound' : '', fmtSize(it.size)].filter(Boolean).join(' · ')),
-      ...row('Style', it.style || '—'),
-      ...row('Sources', sources),
+      ...row('Style', it.style || '—', 'ro'),
+      ...row('Sources', sources, 'ro'),
       ...row('Hits', String(it.hits)),
       ...row('Added', fmtDate(it.added_at)),
       ...row('Last used', fmtDate(it.last_used_at)),
@@ -521,20 +521,37 @@ $('#item-share-link').onclick = async () => {
 };
 
 // Edit mode is its own history entry (`&edit=1`), so Back leaves edit mode instead of the item.
+// Editing happens in place: the form takes the spot of the text, and the read-only text, style
+// and sources hide meanwhile. Outside edit mode the form waits at the end of the dialog, so
+// rebuilding the item info never throws it away.
+function setEditing(on) {
+  const f = $('#edit-form'), info = $('#item-info');
+  f.hidden = !on;
+  info.classList.toggle('editing', on);
+  $('#item-edit').classList.toggle('active', on);
+  $('#item-edit').setAttribute('aria-pressed', String(on));
+  if (on) (info.querySelector('.tag-editor') || info.firstChild)?.after(f);
+  else if (f.parentNode !== $('#item')) $('#item').append(f);
+}
 function openEdit() {
   const f = $('#edit-form'), it = current;
   if (!it || !f.hidden) return;
   f.text.value = it.text;
   f.style.value = it.style || '';
   f.sources.value = it.sources.map((s) => s.url).join('\n');
-  f.hidden = false;
+  setEditing(true);
   f.text.focus();
 }
 function leaveEdit() {
   if (route().edit && history.state?.pushed) history.back();
-  else { nav({ edit: null }); $('#edit-form').hidden = true; }
+  else { nav({ edit: null }); setEditing(false); }
 }
-$('#item-edit').onclick = () => { nav({ edit: '1' }, true); applyRoute(); };
+// The pencil toggles: a second tap leaves edit mode without saving.
+$('#item-edit').onclick = () => {
+  if (!$('#edit-form').hidden) return leaveEdit();
+  nav({ edit: '1' }, true);
+  applyRoute();
+};
 $('#edit-cancel').onclick = leaveEdit;
 
 $('#edit-form').onsubmit = async (e) => {
@@ -879,7 +896,7 @@ function applyRoute() {
     radio.checked = true;
     search();
   }
-  if (r.item) loadItem(r.item).then(() => (r.edit ? openEdit() : ($('#edit-form').hidden = true)));
+  if (r.item) loadItem(r.item).then(() => (r.edit ? openEdit() : setEditing(false)));
   else if ($('#item').open) $('#item').close();
   for (const [view, d] of Object.entries(dialogs)) {
     if (!r.item && r.view === view) {
