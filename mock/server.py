@@ -347,8 +347,8 @@ def sort_key(sort):
         return lambda it: (it["last_used_at"] or epoch, it["added_at"])
     if sort == "added":
         return lambda it: it["added_at"]
-    if sort == "reviewed":
-        return lambda it: (it.get("reviewed_at") or epoch, it["added_at"])
+    if sort == "unreviewed":  # sorted descending: unreviewed (newest first), then latest review first
+        return lambda it: (it.get("reviewed_at") is None, it.get("reviewed_at") or epoch, it["added_at"])
     return lambda it: (it["hits"], it["last_used_at"] or epoch, it["added_at"])
 
 
@@ -563,8 +563,8 @@ def keys_delete(h, kid):
 def items_list(h):
     q = h.query()
     sort = q.get("sort", "used")
-    if sort not in ("used", "recent", "added", "reviewed"):
-        raise ApiError(400, "bad_request", "sort must be used|recent|added|reviewed")
+    if sort not in ("used", "recent", "added", "unreviewed"):
+        raise ApiError(400, "bad_request", "sort must be used|recent|added|unreviewed")
     try:
         limit = max(1, min(200, int(q.get("limit", 50))))
         offset = int(base64.urlsafe_b64decode(q["cursor"]).decode()) if q.get("cursor") else 0

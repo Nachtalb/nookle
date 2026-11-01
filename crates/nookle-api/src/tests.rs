@@ -402,9 +402,24 @@ async fn full_flow() {
         .await;
     assert!(re["reviewed_at"].is_string());
     let (_, page) = t
-        .json("GET", "/api/items?sort=reviewed&limit=1", None)
+        .json("GET", "/api/items?sort=unreviewed&limit=200", None)
         .await;
-    assert_eq!(page["items"][0]["id"], json!(png));
+    let list = page["items"].as_array().unwrap();
+    let first_reviewed = list
+        .iter()
+        .position(|i| i["reviewed_at"].is_string())
+        .unwrap();
+    assert!(first_reviewed > 0, "unreviewed items come first");
+    assert!(
+        list[first_reviewed..]
+            .iter()
+            .all(|i| i["reviewed_at"].is_string())
+    );
+    assert_eq!(
+        list[first_reviewed]["id"],
+        json!(png),
+        "latest review first"
+    );
     assert_eq!(
         t.json(
             "DELETE",

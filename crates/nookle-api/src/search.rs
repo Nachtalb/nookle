@@ -137,8 +137,13 @@ pub fn sort(items: &mut [Item], how: &str) {
             items.sort_by_key(|i| std::cmp::Reverse((i.last_used_at.unwrap_or(epoch), i.added_at)))
         }
         "added" => items.sort_by_key(|i| std::cmp::Reverse(i.added_at)),
-        // reviewed first, latest review on top; the rest after, newest first
-        "reviewed" => items.sort_by_key(|i| std::cmp::Reverse((i.reviewed_at, i.added_at))),
+        // not yet reviewed first, newest on top; reviewed ones after, latest review first
+        "unreviewed" => items.sort_by_key(|i| {
+            (
+                i.reviewed_at.is_some(),
+                std::cmp::Reverse((i.reviewed_at, i.added_at)),
+            )
+        }),
         _ => items.sort_by_key(|i| {
             std::cmp::Reverse((i.hits, i.last_used_at.unwrap_or(epoch), i.added_at))
         }),

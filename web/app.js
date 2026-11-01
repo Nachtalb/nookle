@@ -627,7 +627,7 @@ $('.media-wrap').addEventListener('touchend', (e) => {
   if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) step(dx < 0 ? 1 : -1);
 });
 
-// Reviewed mark: set by any hand edit, or toggled here; "Reviewed" sort lists marked items first.
+// Reviewed mark: set by any hand edit, or toggled here; the "Unreviewed" sort lists unmarked items first.
 function showReviewed(it) {
   const b = $('#item-reviewed'), on = !!it.reviewed_at;
   b.classList.toggle('active', on);

@@ -90,8 +90,8 @@ GET    /api/tags?q=&limit=                  ro  -> 200 {"tags": [{"tag", "count"
 ### List / search
 
 - `sort`: `used` (default: hits desc, then last use, then added), `recent`
-  (last used desc, never-used last), `added` (newest first), `reviewed` (reviewed items
-  first, latest review on top, then the rest newest first).
+  (last used desc, never-used last), `added` (newest first), `unreviewed` (items not yet
+  reviewed first, newest on top, then reviewed ones, latest review first).
 - `limit`: 1–200, default 50. `cursor`: opaque, at most 64 bytes (fits Telegram's inline `next_offset`), from `next_cursor` (`null` = end).
 - `query` echoes how `q` was understood, so UIs can show it as chips:
 

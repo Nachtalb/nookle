@@ -223,8 +223,8 @@ pub struct ListQ {
 
 pub async fn items_list(State(app): S, _auth: Auth, Query(p): Query<ListQ>) -> R<Json<ItemPage>> {
     let sort = p.sort.as_deref().unwrap_or("used");
-    if !matches!(sort, "used" | "recent" | "added" | "reviewed") {
-        return Err(ApiErr::bad("sort must be used|recent|added|reviewed"));
+    if !matches!(sort, "used" | "recent" | "added" | "unreviewed") {
+        return Err(ApiErr::bad("sort must be used|recent|added|unreviewed"));
     }
     let limit = p.limit.unwrap_or(50).clamp(1, 200);
     let offset: usize = match p.cursor.as_deref() {
