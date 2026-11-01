@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chips, parseTags, parseLines, fmtSize, fmtDuration, rankSuggestions } from './lib.js';
+import { chips, parseTags, parseLines, fmtSize, fmtDuration, rankSuggestions, splitEmoji } from './lib.js';
 
 test('chips', () => {
   const q = {
@@ -30,4 +30,11 @@ test('rankSuggestions', () => {
   assert.equal(r[1].hint, ':smirk:');
   assert.deepEqual(rankSuggestions('  ', tags, emoji), []);
   assert.equal(rankSuggestions('s', [], emoji, 2).length, 2);
+});
+
+test('splitEmoji', () => {
+  assert.deepEqual(splitEmoji('cat 😏'), { emoji: ['😏'], rest: 'cat ' });
+  assert.deepEqual(splitEmoji('👨‍👩‍👧🇺🇸👍🏽'), { emoji: ['👨‍👩‍👧', '🇺🇸', '👍🏽'], rest: '' });
+  assert.deepEqual(splitEmoji('rock lee'), { emoji: [], rest: 'rock lee' });
+  assert.deepEqual(splitEmoji('3'), { emoji: [], rest: '3' });
 });

@@ -1,4 +1,4 @@
-import { chips, parseTags, parseLines, fmtSize, fmtDuration, fmtDate, rankSuggestions } from './lib.js';
+import { chips, parseTags, parseLines, fmtSize, fmtDuration, fmtDate, rankSuggestions, splitEmoji } from './lib.js';
 import { emojify, emojiNames } from './emoji.js';
 
 const $ = (s) => document.querySelector(s);
@@ -335,6 +335,12 @@ function tagEditor(initial, { onClick, onChange }) {
     });
     input.addEventListener('input', () => {
       if (input.value.includes(',')) return add(input.value);
+      // An emoji is always a tag of its own: add it the moment it is typed.
+      const { emoji, rest } = splitEmoji(input.value);
+      if (emoji.length) {
+        add(emoji.join(','));
+        input.value = rest;
+      }
       lookup();
     });
     input.addEventListener('blur', () => setTimeout(close, 150));

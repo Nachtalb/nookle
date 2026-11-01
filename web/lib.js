@@ -64,3 +64,17 @@ export function rankSuggestions(input, tags, emoji, limit = 8) {
   }
   return out.slice(0, limit);
 }
+
+const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
+const EMOJI = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+
+/** Pulls whole emoji (ZWJ sequences, skin tones, flags) out of typed text; `rest` keeps the words. */
+export function splitEmoji(text) {
+  const emoji = [];
+  let rest = '';
+  for (const { segment } of segmenter.segment(text)) {
+    if (EMOJI.test(segment)) emoji.push(segment);
+    else rest += segment;
+  }
+  return { emoji, rest: emoji.length ? rest.replace(/\s+/g, ' ').trimStart() : rest };
+}
