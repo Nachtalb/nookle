@@ -1,0 +1,55 @@
+{
+  "_comment": "Seed items for the mock server and integration tests. added_at is ISO or '-<n>d' relative to now.",
+  "items": [
+    {
+      "id": "bUiLdGrn", "kind": "image", "file": "stored/bUiLdGrn.webp", "input": "inputs/build_green.png",
+      "width": 640, "height": 480, "duration_ms": null, "has_audio": false,
+      "style": "cartoon", "tags": ["build", "ci", "green", "programming", "success", "relief"],
+      "text": "WHEN THE BUILD IS FINALLY GREEN",
+      "sources": [{"url": "https://x.com/nachtalb/status/1000000000000000000", "site": "x", "author": "nachtalb"}],
+      "hits": 42, "added_at": "-2d", "last_used_at": "-1d", "analysis": "done"
+    },
+    {
+      "id": "pH0t0aaa", "kind": "image", "file": "stored/pH0t0aaa.webp", "input": "inputs/photo.jpg",
+      "width": 640, "height": 480, "duration_ms": null, "has_audio": false,
+      "style": "photo", "tags": ["test pattern", "colors", "tv"],
+      "text": "just a photo", "sources": [],
+      "hits": 3, "added_at": "-400d", "last_used_at": "-300d", "analysis": "done"
+    },
+    {
+      "id": "tRaNsPrt", "kind": "image", "file": "stored/tRaNsPrt.webp", "input": "inputs/transparent.png",
+      "width": 320, "height": 320, "duration_ms": null, "has_audio": false,
+      "style": "drawing", "tags": ["ok", "yellow", "square", "approval"],
+      "text": "OK", "sources": [{"url": "https://example.com/ok.png", "site": "web", "author": null}],
+      "hits": 1, "added_at": "2025-03-10T12:00:00Z", "last_used_at": null, "analysis": "done"
+    },
+    {
+      "id": "dAnCe123", "kind": "gif", "file": "stored/dAnCe123.webp", "input": "inputs/dance.gif",
+      "width": 320, "height": 240, "duration_ms": 2000, "has_audio": false,
+      "style": "anime", "tags": ["yes", "dance", "happy", "celebration"],
+      "text": "yes yes yes", "sources": [],
+      "hits": 17, "added_at": "-10d", "last_used_at": "-3h", "analysis": "done"
+    },
+    {
+      "id": "sIlEnt05", "kind": "gif", "file": "stored/sIlEnt05.webp", "input": "inputs/silent_short.mp4",
+      "width": 360, "height": 200, "duration_ms": 4000, "has_audio": false,
+      "style": "3d", "tags": ["fractal", "loop", "trippy", "zoom"],
+      "text": "silent loop", "sources": [],
+      "hits": 5, "added_at": "-40d", "last_used_at": "-20d", "analysis": "done"
+    },
+    {
+      "id": "sIlEnt25", "kind": "video", "file": "stored/sIlEnt25.mp4", "input": "inputs/silent_long.mp4",
+      "width": 320, "height": 180, "duration_ms": 25000, "has_audio": false,
+      "style": null, "tags": [], "text": "", "sources": [],
+      "hits": 0, "added_at": "-1d", "last_used_at": null, "analysis": "pending"
+    },
+    {
+      "id": "sOuNd006", "kind": "video", "file": "stored/sOuNd006.mp4", "input": "inputs/with_sound.mp4",
+      "width": 480, "height": 270, "duration_ms": 6000, "has_audio": true,
+      "style": "other", "tags": ["beep", "sound", "test", "tone"],
+      "text": "this one has sound",
+      "sources": [{"url": "https://t.me/somechannel/123", "site": "telegram", "author": "somechannel"}],
+      "hits": 9, "added_at": "2024-12-24T18:00:00Z", "last_used_at": "-5d", "analysis": "done"
+    }
+  ]
+}

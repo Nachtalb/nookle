@@ -1,0 +1,20 @@
+{
+  "code": 200,
+  "message": "OK",
+  "tweet": {
+    "url": "https://x.com/nachtalb/status/1000000000000000001",
+    "id": "1000000000000000001",
+    "text": "three media, one already in the collection",
+    "created_timestamp": 1792974161,
+    "author": {"screen_name": "nachtalb", "name": "Nachtalb"},
+    "media": {
+      "all": [
+        {"type": "photo", "id": "1", "url": "sample://inputs/x_photo.jpg", "width": 480, "height": 360},
+        {"type": "video", "id": "2", "url": "sample://inputs/x_video.mp4", "thumbnail_url": "sample://inputs/x_photo.jpg",
+         "width": 320, "height": 240, "duration": 3.0, "format": "video/mp4"},
+        {"type": "gif", "id": "3", "url": "sample://inputs/dance.gif", "thumbnail_url": "sample://inputs/dance.gif",
+         "width": 320, "height": 240, "format": "video/mp4"}
+      ]
+    }
+  }
+}
