@@ -16,3 +16,10 @@ Telegram inline bot, an x.com userscript and public asset links at
 - `samples/`: sample uploads, their normalised versions and fixtures
 - `assets/emoji_keywords_en.json`: Telegram's English emoji keywords
   (`messages.getEmojiKeywords`)
+
+## Tagger
+
+`nookle-tagger` claims pending items one at a time and tags them with the
+llama-server VLM (`/v1/chat/completions`, model `vlm`). Env: `NOOKLE_API` (base
+URL), `NOOKLE_KEY` (rw key), `VLM_URL` (e.g. `http://vlm:8080` in the
+moss-image network), `POLL_SECS` (idle wait, default 30).
