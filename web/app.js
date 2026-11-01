@@ -278,6 +278,7 @@ function showItem(it) {
   current = it;
   if (opened && desktop.matches) queueMicrotask(() => $('#item-info .tag-input')?.focus());
   setEditing(false);
+  showReviewed(it);
   $('#item-title').textContent = it.id;
   const m = it.status !== 'ready' ? el('p', { className: 'muted', textContent: it.status === 'failed' ? 'Failed: ' + it.error : 'Processing…' })
     : it.mime === 'video/mp4' ? el('video', { src: it.url, controls: true, loop: true, playsInline: true, autoplay: true })
@@ -303,6 +304,7 @@ function showItem(it) {
       ...row('Hits', String(it.hits)),
       ...row('Added', fmtDate(it.added_at)),
       ...row('Last used', fmtDate(it.last_used_at)),
+      ...row('Reviewed', fmtDate(it.reviewed_at)),
       ...row('Status', `${it.status} · analysis ${it.analysis}`)));
 }
 
@@ -322,7 +324,7 @@ async function saveTags(id, tags) {
     const it = await api('/items/' + id, { method: 'PATCH', json: { tags } });
     staleResults = true;
     cards.get(it.id)?.replaceWith(card(it));
-    if (current?.id === it.id) { current = it; return it.tags; }
+    if (current?.id === it.id) { current = it; showReviewed(it); return it.tags; }
   } catch (err) {
     toast(err.message);
     if (current?.id === id) showItem(current);
@@ -614,6 +616,25 @@ $('.media-wrap').addEventListener('touchend', (e) => {
   touch = null;
   if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) step(dx < 0 ? 1 : -1);
 });
+
+// Reviewed mark: set by any hand edit, or toggled here; "Reviewed" sort lists marked items first.
+function showReviewed(it) {
+  const b = $('#item-reviewed'), on = !!it.reviewed_at;
+  b.classList.toggle('active', on);
+  b.setAttribute('aria-pressed', String(on));
+  b.title = b.ariaLabel = on ? 'Reviewed — tap to unmark' : 'Mark as reviewed';
+}
+$('#item-reviewed').onclick = async () => {
+  const it = current;
+  try {
+    const next = await api('/items/' + it.id, { method: 'PATCH', json: { reviewed: !it.reviewed_at } });
+    staleResults = true;
+    cards.get(next.id)?.replaceWith(card(next));
+    if (current?.id === next.id) { current = next; showReviewed(next); }
+  } catch (err) {
+    toast(err.message);
+  }
+};
 
 $('#item-retag').onclick = async () => {
   try {
