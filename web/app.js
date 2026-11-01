@@ -612,10 +612,13 @@ async function step(dir) {
 
 $('#item-prev').onclick = () => step(-1);
 $('#item-next').onclick = () => step(1);
+// ← / → or A / D step through the items, unless typing or walking the tags
 document.addEventListener('keydown', (e) => {
-  if (!$('#item').open || e.target.closest?.('input, textarea, select')) return;
-  if (e.key === 'ArrowLeft') step(-1);
-  else if (e.key === 'ArrowRight') step(1);
+  if (!$('#item').open || e.target.closest?.('input, textarea, select, .tag-editor')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'arrowleft' || k === 'a') step(-1);
+  else if (k === 'arrowright' || k === 'd') step(1);
 });
 let touch = null;
 $('.media-wrap').addEventListener('touchstart', (e) => { touch = e.touches[0]; }, { passive: true });
