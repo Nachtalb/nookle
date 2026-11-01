@@ -37,5 +37,9 @@ jobs:
           tags: |
             ghcr.io/nachtalb/${{ matrix.name }}:sha-${{ steps.sha.outputs.short }}
             ghcr.io/nachtalb/${{ matrix.name }}:latest
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          # Layer cache lives in its own GHCR package, not the 10 GB Actions cache, so the
+          # from-source ffmpeg stage is not evicted after a quiet week.
+          cache-from: |
+            type=registry,ref=ghcr.io/nachtalb/nookle-buildcache:${{ matrix.name }}
+            type=gha,scope=${{ matrix.name }}
+          cache-to: type=registry,ref=ghcr.io/nachtalb/nookle-buildcache:${{ matrix.name }},mode=max,image-manifest=true,oci-mediatypes=true
