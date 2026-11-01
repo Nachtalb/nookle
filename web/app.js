@@ -147,7 +147,10 @@ $('#q').oninput = () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(search, 300);
 };
-$('#q').onkeydown = (e) => e.key === 'Enter' && (clearTimeout(searchTimer), search());
+// A handler that returns false cancels the key, which ate Backspace on mobile keyboards.
+$('#q').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { clearTimeout(searchTimer); search(); }
+});
 $('#sort').onchange = search;
 
 // ---------- item view ----------
