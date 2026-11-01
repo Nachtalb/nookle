@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#15151b">
+<title>Nookle</title>
+<link rel="stylesheet" href="/style.css">
+<script type="module" src="/app.js"></script>
+</head>
+<body>
+
+<section id="login" hidden>
+  <form id="login-form">
+    <h1>Nookle</h1>
+    <input name="password" type="password" placeholder="Password or API key" autocomplete="current-password" required autofocus>
+    <button>Log in</button>
+    <p class="error" id="login-error"></p>
+  </form>
+</section>
+
+<section id="app" hidden>
+  <header>
+    <div class="bar">
+      <strong class="logo">Nookle</strong>
+      <span class="badge" id="scope"></span>
+      <span class="spacer"></span>
+      <button class="rw" id="open-upload" title="Upload">＋ Add</button>
+      <button class="admin" id="open-keys">Keys</button>
+      <button id="logout" title="Log out">⎋</button>
+    </div>
+    <input id="q" type="search" placeholder="Search: cat gif new 😂 &quot;some phrase&quot;" autocomplete="off" enterkeyhint="search">
+    <div class="bar">
+      <div class="chips" id="chips"></div>
+      <span class="spacer"></span>
+      <div class="seg" id="sort">
+        <label><input type="radio" name="sort" value="used" checked><span>Used</span></label>
+        <label><input type="radio" name="sort" value="recent"><span>Recent</span></label>
+        <label><input type="radio" name="sort" value="added"><span>Added</span></label>
+      </div>
+    </div>
+  </header>
+  <main id="grid"></main>
+  <p class="muted center" id="grid-status"></p>
+  <div id="sentinel"></div>
+</section>
+
+<dialog id="item">
+  <div class="dlg-head"><span id="item-title"></span><button class="close" value="close">✕</button></div>
+  <div class="media" id="item-media"></div>
+  <div class="actions">
+    <button id="item-copy" class="primary">Copy link</button>
+    <a id="item-page" class="button" target="_blank" rel="noopener">Open page</a>
+    <button id="item-edit" class="rw">Edit</button>
+    <button id="item-delete" class="rw danger">Delete</button>
+  </div>
+  <div id="item-info"></div>
+  <form id="edit-form" hidden>
+    <label>Tags (comma separated)<input name="tags"></label>
+    <label>Text<textarea name="text" rows="3"></textarea></label>
+    <label>Style<select name="style">
+      <option value="">(none)</option><option>anime</option><option>cartoon</option><option>photo</option>
+      <option>3d</option><option>drawing</option><option>screenshot</option><option>other</option>
+    </select></label>
+    <label>Sources (one URL per line)<textarea name="sources" rows="3"></textarea></label>
+    <div class="actions"><button class="primary">Save</button><button type="button" id="edit-cancel">Cancel</button></div>
+  </form>
+</dialog>
+
+<dialog id="upload">
+  <div class="dlg-head"><span>Add memes</span><button class="close" value="close">✕</button></div>
+  <label class="drop" id="drop">
+    <input type="file" id="files" multiple accept="image/*,video/*" hidden>
+    <span>Tap to pick, drop or paste files</span>
+  </label>
+  <label>Source URL (optional)<input id="up-source" type="url" placeholder="https://…"></label>
+  <label>Tags (optional, comma separated)<input id="up-tags"></label>
+  <div class="actions"><button class="primary" id="up-go" disabled>Upload</button></div>
+  <ul class="queue" id="up-queue"></ul>
+  <h3>Import from URL</h3>
+  <form id="import-form" class="row">
+    <input name="url" type="url" placeholder="https://x.com/user/status/…" required>
+    <button class="primary">Import</button>
+  </form>
+  <ul class="queue" id="import-queue"></ul>
+</dialog>
+
+<dialog id="keys">
+  <div class="dlg-head"><span>API keys</span><button class="close" value="close">✕</button></div>
+  <form id="key-form" class="row">
+    <input name="name" placeholder="Name" required>
+    <select name="scope"><option>ro</option><option>rw</option></select>
+    <button class="primary">Create</button>
+  </form>
+  <div id="new-key" hidden>
+    <p>New key, shown only once:</p>
+    <div class="row"><input id="new-key-value" readonly><button id="new-key-copy">Copy</button></div>
+  </div>
+  <ul class="keys" id="key-list"></ul>
+</dialog>
+
+<div id="toast" hidden></div>
+</body>
+</html>
