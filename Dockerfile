@@ -1,11 +1,11 @@
 # Three scratch images from one compile: `bot` (nookle-bot), `tagger` (nookle-tagger) and the
 # default `api` (nookle-api plus a static ffmpeg/ffprobe 9 trimmed to the codecs Nookle reads
 # and writes). Everything is static musl and TLS uses bundled webpki roots, so no base is needed.
-FROM alpine:3.22 AS ffmpeg
+FROM alpine:3.24 AS ffmpeg
 RUN apk add --no-cache build-base nasm cmake meson ninja pkgconf curl xz \
     x264-dev libwebp-dev libwebp-static zlib-dev zlib-static
 WORKDIR /b
-ARG OPUS=1.5.2 DAV1D=1.5.1 SVT=v3.1.2 FFMPEG=9.0.2
+ARG OPUS=1.6.1 DAV1D=1.5.4 SVT=v4.2.0 FFMPEG=9.0.2
 RUN curl -fsSL https://downloads.xiph.org/releases/opus/opus-$OPUS.tar.gz | tar xz && cd opus-$OPUS \
  && ./configure --prefix=/usr/local --disable-shared --enable-static --disable-doc --disable-extra-programs \
  && make -j"$(nproc)" install
@@ -36,7 +36,7 @@ RUN curl -fsSL https://ffmpeg.org/releases/ffmpeg-$FFMPEG.tar.xz | tar xJ && cd 
  && make -j"$(nproc)" ffprobe && strip ffprobe && cp ffprobe /out/
 
 FROM rust:1-alpine AS chef
-RUN apk add --no-cache musl-dev && cargo install cargo-chef --locked --version 0.1.73
+RUN apk add --no-cache musl-dev && cargo install cargo-chef --locked --version 0.1.78
 WORKDIR /src
 
 FROM chef AS plan

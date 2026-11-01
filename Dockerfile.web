@@ -1,10 +1,10 @@
 # Static PWA + userscript.
-FROM alpine:3.22 AS emoji
+FROM alpine:3.24 AS emoji
 RUN apk add --no-cache curl tar
 COPY scripts/fetch-emoji.sh /fetch-emoji.sh
 RUN /fetch-emoji.sh /out
 
-FROM alpine:3.22 AS web
+FROM alpine:3.24 AS web
 COPY web/ /public/
 COPY scripts/version-assets.sh /version-assets.sh
 RUN /version-assets.sh /public
