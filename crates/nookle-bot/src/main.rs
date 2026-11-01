@@ -13,7 +13,7 @@ use nookle_bot::{
     api::{Api, Upload},
     text,
 };
-use nookle_core::model::{DupMatch, ImportRequest, Item, Status};
+use nookle_core::model::{Analysis, DupMatch, ImportRequest, Item, Status};
 use teloxide::{
     net::Download,
     payloads::{AnswerInlineQuerySetters, EditMessageTextSetters, SendMessageSetters},
@@ -364,6 +364,12 @@ async fn ingest(
         Ok(Upload::Created(item)) => {
             edit(bot, status, "⚙️ Processing…".into(), None).await;
             match wait_ready(api, *item).await {
+                Ok(item) if item.status == Status::Ready && item.analysis == Analysis::Pending => {
+                    edit(bot, status, text::item_summary(&item), None).await;
+                    // The tagger runs on another machine; show its tags once they land.
+                    let item = wait_tagged(api, item).await;
+                    (text::item_summary(&item), None)
+                }
                 Ok(item) => (text::item_summary(&item), None),
                 Err(e) => (format!("❌ {e:#}"), None),
             }
@@ -434,6 +440,19 @@ async fn wait_ready(api: &Api, mut item: Item) -> Result<Item> {
         item = api.item(&item.id).await?;
     }
     anyhow::bail!("still processing after 10 min: {}", item.page_url)
+}
+
+/// Poll until the tagger has reported, for at most 5 minutes; errors keep the last state.
+async fn wait_tagged(api: &Api, mut item: Item) -> Item {
+    for _ in 0..100 {
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        match api.item(&item.id).await {
+            Ok(i) if i.analysis != Analysis::Pending => return i,
+            Ok(i) => item = i,
+            Err(e) => warn!("poll tags {}: {e:#}", item.id),
+        }
+    }
+    item
 }
 
 async fn edit(bot: &Bot, msg: &Message, text: String, markup: Option<InlineKeyboardMarkup>) {

@@ -1,5 +1,5 @@
 use nookle_core::model::{
-    DupMatch, ImportResponse, ImportStatus, Item, Kind, Status, TelegramType,
+    Analysis, DupMatch, ImportResponse, ImportStatus, Item, Kind, Status, TelegramType,
 };
 use teloxide::types::{
     FileId, InlineQueryResult, InlineQueryResultCachedMpeg4Gif, InlineQueryResultCachedPhoto,
@@ -87,10 +87,10 @@ pub fn item_summary(item: &Item) -> String {
             item.error.as_deref().unwrap_or("unknown error")
         );
     }
-    let tags = if item.tags.is_empty() {
-        "none yet".to_string()
-    } else {
-        item.tags.join(", ")
+    let tags = match (item.tags.is_empty(), item.analysis) {
+        (true, Analysis::Pending) => "⏳ tagging…".to_string(),
+        (true, _) => "none".to_string(),
+        (false, _) => item.tags.join(", "),
     };
     format!("✅ {}\nKind: {}\nTags: {tags}", item.page_url, kind(item))
 }
@@ -145,6 +145,16 @@ mod tests {
             file_id: id.into(),
         });
         it
+    }
+
+    #[test]
+    fn summary_tags() {
+        let mut it = item(None, &[], "");
+        assert!(item_summary(&it).ends_with("Tags: ⏳ tagging…"));
+        it.analysis = Analysis::Done;
+        assert!(item_summary(&it).ends_with("Tags: none"));
+        it.tags = vec!["cat".into(), "😏".into()];
+        assert!(item_summary(&it).ends_with("Tags: cat, 😏"));
     }
 
     #[test]
@@ -208,7 +218,7 @@ mod tests {
         let it = item(None, &[], "");
         assert_eq!(
             item_summary(&it),
-            "✅ https://i.naa.gg/abcd1234\nKind: image\nTags: none yet"
+            "✅ https://i.naa.gg/abcd1234\nKind: image\nTags: ⏳ tagging…"
         );
         assert!(duplicate_text(DupMatch::Near, Some(3), &it).contains("distance 3"));
         let res = ImportResponse {
