@@ -112,6 +112,16 @@ impl Api {
         Ok(ok(res).await?.json().await?)
     }
 
+    /// Replace an item's tags.
+    pub async fn set_tags(&self, id: &str, tags: &[String]) -> Result<Item> {
+        let res = self
+            .req(reqwest::Method::PATCH, &format!("/api/items/{id}"))
+            .json(&serde_json::json!({ "tags": tags }))
+            .send()
+            .await?;
+        Ok(ok(res).await?.json().await?)
+    }
+
     pub async fn hit(&self, id: &str) -> Result<()> {
         let res = self
             .req(reqwest::Method::POST, &format!("/api/items/{id}/hit"))

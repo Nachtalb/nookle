@@ -176,6 +176,7 @@ async fn start(bot: Bot, msg: Message, me: Me) -> ResponseResult<()> {
     let help = format!(
         "Send me a photo, GIF, video, sticker or file to add it to Nookle. \
          #words in the caption become tags, links become sources.\n\n\
+         Reply to a confirmation with tags (😏 smug -wrong) to edit them.\n\n\
          Send a link (x.com posts too) to import its media.\n\n\
          Search in any chat: @{} cat",
         me.username()
@@ -187,6 +188,7 @@ async fn start(bot: Bot, msg: Message, me: Me) -> ResponseResult<()> {
 async fn message(
     bot: Bot,
     msg: Message,
+    me: Me,
     api: Api,
     cfg: Cfg,
     pending: Pending,
@@ -205,6 +207,11 @@ async fn message(
         }
     }
 
+    if let (Some(to), Some(words), None) = (msg.reply_to_message(), msg.text(), media(&msg))
+        && to.from.as_ref().is_some_and(|u| u.id == me.id)
+    {
+        return retag(&bot, &msg, to, words, &api).await;
+    }
     let media = match media(&msg) {
         Some(Ok(m)) => m,
         Some(Err(why)) => return reply(&bot, &msg, why).await,
@@ -238,6 +245,58 @@ async fn message(
     };
     ingest(&bot, &api, &pending, &status, up, false).await;
     Ok(())
+}
+
+/// A text reply to one of our confirmations edits the tags of the items it links.
+async fn retag(
+    bot: &Bot,
+    msg: &Message,
+    to: &Message,
+    words: &str,
+    api: &Api,
+) -> ResponseResult<()> {
+    let ids = text::item_ids(to.text().unwrap_or_default());
+    let (add, remove) = text::parse_tag_reply(words);
+    if ids.is_empty() || (add.is_empty() && remove.is_empty()) {
+        return reply(
+            bot,
+            msg,
+            "Reply to a confirmation with tags to add, -tag to remove.",
+        )
+        .await;
+    }
+    let mut out = Vec::new();
+    let mut last = None;
+    for id in &ids {
+        let res = async {
+            let item = api.item(id).await?;
+            let tags: Vec<String> = item
+                .tags
+                .into_iter()
+                .filter(|t| !remove.contains(t))
+                .chain(add.iter().cloned())
+                .collect();
+            api.set_tags(id, &tags).await
+        }
+        .await;
+        out.push(match res {
+            Ok(item) => {
+                let line = format!("🏷 {id}: {}", item.tags.join(", "));
+                last = Some(item);
+                line
+            }
+            Err(e) => format!("❌ {id}: {e:#}"),
+        });
+    }
+    // A single upload confirmation shows the tags, so keep it current.
+    if let (1, Some(item), true) = (
+        ids.len(),
+        last,
+        to.text().is_some_and(|t| t.starts_with('✅')),
+    ) {
+        edit(bot, to, text::item_summary(&item), None).await;
+    }
+    reply(bot, msg, &out.join("\n")).await
 }
 
 async fn reply(bot: &Bot, msg: &Message, text: &str) -> ResponseResult<()> {

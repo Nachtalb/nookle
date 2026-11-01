@@ -24,6 +24,47 @@ pub fn parse_caption(text: &str) -> (Vec<String>, Vec<String>) {
     (tags, urls(text))
 }
 
+/// Tags to add and remove from a reply like `😏 smug, #cat -dog`. Emoji runs are
+/// split into single emoji so each one is searchable on its own.
+pub fn parse_tag_reply(text: &str) -> (Vec<String>, Vec<String>) {
+    let (mut add, mut remove) = (Vec::new(), Vec::new());
+    for word in text.split(|c: char| c.is_whitespace() || c == ',') {
+        let (list, word) = match word.strip_prefix('-') {
+            Some(w) => (&mut remove, w),
+            None => (&mut add, word),
+        };
+        let word = word.trim_start_matches('#');
+        if word.is_empty() {
+            continue;
+        }
+        let tags =
+            nookle_core::query::split_emoji(word).unwrap_or_else(|| vec![word.to_lowercase()]);
+        for tag in tags {
+            if !list.contains(&tag) {
+                list.push(tag);
+            }
+        }
+    }
+    (add, remove)
+}
+
+/// Item ids from the page links in one of our own messages, in order.
+pub fn item_ids(text: &str) -> Vec<String> {
+    let mut ids: Vec<String> = Vec::new();
+    for url in urls(text) {
+        let Some(id) = url.rsplit('/').next() else {
+            continue;
+        };
+        if id.len() == 8
+            && id.chars().all(|c| c.is_ascii_alphanumeric())
+            && !ids.iter().any(|i| i == id)
+        {
+            ids.push(id.to_string());
+        }
+    }
+    ids
+}
+
 pub fn urls(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     for word in text.split_whitespace() {
@@ -145,6 +186,30 @@ mod tests {
             file_id: id.into(),
         });
         it
+    }
+
+    #[test]
+    fn tag_replies() {
+        assert_eq!(
+            parse_tag_reply("😏 Smug, #cat -dog 😂🔥 -"),
+            (
+                vec![
+                    "😏".into(),
+                    "smug".into(),
+                    "cat".into(),
+                    "😂".into(),
+                    "🔥".into()
+                ],
+                vec!["dog".to_string()]
+            )
+        );
+        assert_eq!(parse_tag_reply("  "), (vec![], vec![]));
+        assert_eq!(
+            item_ids(
+                "✅ https://n.naa.gg/abcd1234\nKind: image\n2. ♻️ https://n.naa.gg/XyZ98765 https://n.naa.gg/abcd1234 https://x.com/a/status/1"
+            ),
+            ["abcd1234", "XyZ98765"]
+        );
     }
 
     #[test]
