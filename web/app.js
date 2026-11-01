@@ -223,7 +223,7 @@ function showItem(it) {
   $('#item-page').href = it.page_url;
   const row = (k, v) => v || v === 0 ? [el('dt', { textContent: k }), el('dd', {}, v)] : [];
   const tags = tagEditor(it.tags, {
-    onClick: (t) => { nav({ q: t, item: null }); applyRoute(); },
+    onClick: (t) => { nav({ q: t, item: null }, true); applyRoute(); },
     onChange: canWrite() ? (next) => saveTags(it.id, next) : null,
   });
   const sources = it.sources.length ? el('div', {}, ...it.sources.map((s) =>
