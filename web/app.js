@@ -332,8 +332,11 @@ function tagEditor(initial, { onClick, onChange, onRemove }) {
       show(rankSuggestions(q, r.tags.filter((t) => !tags.includes(t.tag)), emojiNames));
     }, 120);
   };
+  // Only the chips are rebuilt; the input stays in place, since re-inserting it would blur it
+  // (and close the phone keyboard) every time a tag is added.
   function render() {
-    box.replaceChildren(...tags.map((t) => {
+    for (const c of [...box.children]) if (c !== field) c.remove();
+    const chipEls = tags.map((t) => {
       const chip = el('span', { className: 'chip term' });
       const label = emojify(el('button', { type: 'button', className: 'chip-label', title: t }), t);
       if (onClick) label.onclick = () => onClick(t);
@@ -344,7 +347,11 @@ function tagEditor(initial, { onClick, onChange, onRemove }) {
         chip.append(x);
       }
       return chip;
-    }), onChange ? field : '');
+    });
+    if (onChange) {
+      if (!field.isConnected || field.parentNode !== box) box.append(field);
+      field.before(...chipEls);
+    } else box.append(...chipEls);
   }
   if (onChange) {
     submit.addEventListener('pointerdown', (e) => e.preventDefault());
