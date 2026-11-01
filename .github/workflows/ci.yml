@@ -12,6 +12,13 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
+      # media needs ffmpeg >= 8 (animated WebP decoding); apt only has 6
+      - name: static ffmpeg
+        run: |
+          id=$(docker create mwader/static-ffmpeg:9.0.2-1 /ffmpeg)
+          sudo docker cp "$id:/ffmpeg" /usr/local/bin/ffmpeg
+          sudo docker cp "$id:/ffprobe" /usr/local/bin/ffprobe
+          docker rm "$id"
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
@@ -21,3 +28,8 @@ jobs:
       - uses: actions/checkout@v5
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
       - run: python3 -m unittest mock/test_mock.py
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: node --test web/ userscript/test/
