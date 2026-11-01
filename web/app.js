@@ -608,13 +608,30 @@ document.addEventListener('paste', (e) => {
   if (files.length) { e.preventDefault(); addFiles(files); }
 });
 
+// Uploads run in the background, two at a time: closing the dialog doesn't stop them, and
+// conversion and tagging start on the server as each file lands. Finished uploads show up in
+// the gallery as busy cards right away.
 $('#up-go').onclick = async () => {
   const jobs = pending;
   pending = [];
   $('#up-go').disabled = true;
   const source = $('#up-source').value.trim(), tags = upTags.tags().join(',');
-  for (const j of jobs) await upload(j, source, tags, false);
+  const next = async () => {
+    for (let j; (j = jobs.shift());) await upload(j, source, tags, false);
+  };
+  const total = jobs.length;
+  await Promise.all([next(), next()]);
+  if (!$('#upload').open) toast(`Uploaded ${total} file${total === 1 ? '' : 's'}`);
 };
+
+// New uploads go to the top of the gallery: at once while it's showing, or when the dialog closes.
+const landed = [];
+function showUploaded(it) {
+  if ($('#upload').open) return landed.push(it);
+  if (cards.has(it.id) || route().q) return;
+  $('#grid').prepend(card(it));
+  $('#grid-status').textContent = '';
+}
 
 async function upload(j, source, tags, force) {
   const fd = new FormData();
@@ -624,7 +641,9 @@ async function upload(j, source, tags, force) {
   if (force) fd.append('force', '1');
   setState(j.li, 'uploading…');
   try {
-    track(j.li, await api('/items', { method: 'POST', body: fd }));
+    const it = await api('/items', { method: 'POST', body: fd });
+    showUploaded(it);
+    track(j.li, it);
   } catch (err) {
     if (err.status === 409) showDup(j.li, err.body, () => upload(j, source, tags, true));
     else setState(j.li, err.message, 'error');
@@ -702,7 +721,8 @@ $('#up-tags').replaceWith(upTags);
 
 $('#open-upload').onclick = () => openView('add');
 $('#upload').addEventListener('close', () => {
-  if (added) { added = false; search(); }
+  added = false;
+  for (const it of landed.splice(0).reverse()) showUploaded(it);
 });
 
 // ---------- keys ----------
