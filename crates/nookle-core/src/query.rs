@@ -38,7 +38,7 @@ pub fn emoji_keywords(emoji: &str) -> Option<&'static [String]> {
 }
 
 /// Greedy split of a token made only of known emoji.
-fn split_emoji(tok: &str) -> Option<Vec<String>> {
+pub fn split_emoji(tok: &str) -> Option<Vec<String>> {
     let chars: Vec<char> = tok.chars().filter(|&c| c != '\u{fe0f}').collect();
     let (map, max) = &*EMOJI;
     let mut out = Vec::new();

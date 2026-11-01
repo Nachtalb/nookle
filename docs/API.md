@@ -113,7 +113,7 @@ Whitespace-separated tokens, case-insensitive. All tokens must match (AND).
 | `march 2024` | added in March 2024 |
 | emoji, e.g. `😂` | matches any of the emoji's Telegram keywords (`assets/emoji_keywords_en.json`) or the emoji itself as a tag |
 | `"some phrase"` | literal: never a filter, matched as a phrase |
-| anything else | prefix match on tags, substring match on text and source author |
+| anything else | prefix match on tags, substring match on text and source author; an emoji tag also matches its exact keywords (`smirk` finds items tagged `😏`) |
 
 Month names are full English names only (`may` is a month, quote it to search
 for the word).
