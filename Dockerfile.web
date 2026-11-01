@@ -1,0 +1,5 @@
+# Static PWA + userscript.
+FROM ghcr.io/static-web-server/static-web-server:2
+COPY web/ /public/
+COPY userscript/nookle.user.js /public/nookle.user.js
+ENV SERVER_PORT=8080 SERVER_ROOT=/public SERVER_CACHE_CONTROL_HEADERS=false
