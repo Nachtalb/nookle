@@ -239,6 +239,8 @@ pub async fn items_list(State(app): S, _auth: Auth, Query(p): Query<ListQ>) -> R
         .unwrap()
         .values()
         .filter(|r| search::matches(&r.item, &pq, &aliases))
+        // "unreviewed" lists only what is still to go through
+        .filter(|r| sort != "unreviewed" || r.item.reviewed_at.is_none())
         .map(|r| r.item.clone())
         .collect();
     search::sort(&mut hits, sort);

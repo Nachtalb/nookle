@@ -405,20 +405,10 @@ async fn full_flow() {
         .json("GET", "/api/items?sort=unreviewed&limit=200", None)
         .await;
     let list = page["items"].as_array().unwrap();
-    let first_reviewed = list
-        .iter()
-        .position(|i| i["reviewed_at"].is_string())
-        .unwrap();
-    assert!(first_reviewed > 0, "unreviewed items come first");
+    assert!(!list.is_empty() && list.iter().all(|i| i["reviewed_at"].is_null()));
     assert!(
-        list[first_reviewed..]
-            .iter()
-            .all(|i| i["reviewed_at"].is_string())
-    );
-    assert_eq!(
-        list[first_reviewed]["id"],
-        json!(png),
-        "latest review first"
+        !list.iter().any(|i| i["id"] == json!(png)),
+        "reviewed items are left out"
     );
     assert_eq!(
         t.json(

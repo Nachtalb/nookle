@@ -347,8 +347,8 @@ def sort_key(sort):
         return lambda it: (it["last_used_at"] or epoch, it["added_at"])
     if sort == "added":
         return lambda it: it["added_at"]
-    if sort == "unreviewed":  # sorted descending: unreviewed (newest first), then latest review first
-        return lambda it: (it.get("reviewed_at") is None, it.get("reviewed_at") or epoch, it["added_at"])
+    if sort == "unreviewed":  # only unreviewed items are listed; newest first
+        return lambda it: it["added_at"]
     return lambda it: (it["hits"], it["last_used_at"] or epoch, it["added_at"])
 
 
@@ -571,7 +571,8 @@ def items_list(h):
     except (ValueError, UnicodeDecodeError):
         raise ApiError(400, "bad_request", "bad limit or cursor")
     pq = parse_query(q.get("q", ""))
-    hits = sorted((it for it in h.store.items.values() if matches(it, pq)), key=sort_key(sort), reverse=True)
+    hits = sorted((it for it in h.store.items.values() if matches(it, pq)
+                   and not (sort == "unreviewed" and it.get("reviewed_at"))), key=sort_key(sort), reverse=True)
     page = hits[offset:offset + limit]
     nxt = base64.urlsafe_b64encode(str(offset + limit).encode()).decode() if offset + limit < len(hits) else None
     pq_out = dict(pq, added_after=iso(pq["added_after"]), added_before=iso(pq["added_before"]))
