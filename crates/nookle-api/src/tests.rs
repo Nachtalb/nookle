@@ -331,6 +331,20 @@ async fn full_flow() {
     t.json("PUT", "/api/blocked-tags", Some(json!({"tags": []})))
         .await;
     assert_eq!(t.ids("smug").await, vec![id.clone()]);
+
+    // words an emoji already says are dropped: 'smirk' is a 😏 keyword, 'sly' an alias of it
+    t.json("PUT", "/api/aliases", Some(json!({"sly": ["😏"]})))
+        .await;
+    t.json("POST", &format!("/api/items/{id}/reanalyse"), None)
+        .await;
+    let (_, it) = t
+        .json(
+            "POST",
+            &format!("/api/items/{id}/analysis"),
+            Some(json!({"tags": ["😏", "smirk", "sly", "cat"], "text": "", "style": "anime"})),
+        )
+        .await;
+    assert_eq!(it["tags"], json!(["cat", "😏"]));
     assert_eq!(
         ro_t.json("PUT", "/api/aliases", Some(json!({"x": []})))
             .await

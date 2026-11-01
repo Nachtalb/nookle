@@ -216,6 +216,36 @@ impl App {
         }
     }
 
+    /// Drops tagger words that an emoji on the same item already covers (see `drop_covered`),
+    /// e.g. after aliases were learned. Hand-made tags stay.
+    pub fn sweep_covered(&self) -> usize {
+        let aliases = self.aliases.read().unwrap().clone();
+        let todo: Vec<(String, Vec<String>)> = self
+            .items
+            .read()
+            .unwrap()
+            .values()
+            .filter_map(|r| {
+                let gone: Vec<String> = r
+                    .ai_tags
+                    .iter()
+                    .filter(|t| {
+                        !crate::routes::drop_covered(r.item.tags.clone(), &aliases).contains(t)
+                    })
+                    .cloned()
+                    .collect();
+                (!gone.is_empty()).then(|| (r.item.id.clone(), gone))
+            })
+            .collect();
+        for (id, gone) in &todo {
+            self.update(id, |r| {
+                r.item.tags.retain(|t| !gone.contains(t));
+                r.ai_tags.retain(|t| !gone.contains(t));
+            });
+        }
+        todo.len()
+    }
+
     /// Replaces the blocked list and strips newly blocked tags from every item.
     pub fn set_blocked(&self, tags: Vec<String>) -> Vec<String> {
         let added: Vec<String> = {

@@ -462,6 +462,31 @@ pub fn clean_tags(tags: impl IntoIterator<Item = String>) -> Vec<String> {
     v
 }
 
+/// Drops the words an emoji in `tags` already says: its Telegram keywords (`smirk` next to 😏)
+/// and alias words mapped to it (`smug` -> 😏). The emoji are what search finds them by anyway.
+pub fn drop_covered(tags: Vec<String>, aliases: &crate::state::Aliases) -> Vec<String> {
+    let emoji: Vec<&String> = tags
+        .iter()
+        .filter(|t| nookle_core::query::split_emoji(t).is_some())
+        .collect();
+    if emoji.is_empty() {
+        return tags;
+    }
+    let covered = |w: &str| {
+        emoji.iter().any(|e| {
+            nookle_core::query::emoji_keywords(e).is_some_and(|k| k.iter().any(|k| k == w))
+        }) || aliases
+            .get(w)
+            .is_some_and(|m| m.iter().any(|e| emoji.contains(&e)))
+    };
+    let keep: Vec<String> = tags
+        .iter()
+        .filter(|t| nookle_core::query::split_emoji(t).is_some() || !covered(t))
+        .cloned()
+        .collect();
+    keep
+}
+
 pub async fn items_patch(
     State(app): S,
     auth: Auth,
@@ -570,6 +595,7 @@ pub async fn aliases_put(
         emoji.dedup();
         app.set_alias(&word, Some(&emoji));
     }
+    app.sweep_covered();
     Ok(aliases_get(State(app), auth).await)
 }
 
@@ -652,9 +678,12 @@ pub async fn analysis_submit(
             let old = std::mem::take(&mut r.ai_tags);
             let kept = r.item.tags.drain(..).filter(|t| !old.contains(t));
             let blocked = app.blocked.read().unwrap();
-            r.ai_tags = clean_tags(
-                tags.into_iter()
-                    .filter(|t| !blocked.contains(&t.trim().to_lowercase())),
+            r.ai_tags = drop_covered(
+                clean_tags(
+                    tags.into_iter()
+                        .filter(|t| !blocked.contains(&t.trim().to_lowercase())),
+                ),
+                &app.aliases.read().unwrap(),
             );
             r.item.tags = clean_tags(kept.chain(r.ai_tags.iter().cloned()));
             r.item.text = text;

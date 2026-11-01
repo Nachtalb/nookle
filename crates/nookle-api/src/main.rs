@@ -117,6 +117,10 @@ async fn main() -> Result<()> {
         http: reqwest::Client::new(),
         encode: tokio::sync::Semaphore::new(workers),
     });
+    let swept = app.sweep_covered();
+    if swept > 0 {
+        tracing::info!(swept, "dropped words already covered by an emoji");
+    }
     tokio::spawn(ingest::telegram_retry_loop(app.clone()));
     let bind = env("NOOKLE_BIND").unwrap_or_else(|| "0.0.0.0:8080".into());
     let listener = tokio::net::TcpListener::bind(&bind).await?;
