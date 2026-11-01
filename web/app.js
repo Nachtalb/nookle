@@ -213,6 +213,7 @@ async function loadItem(id) {
 }
 
 function showItem(it) {
+  updateSteps(it.id);
   current = it;
   $('#edit-form').hidden = true;
   $('#item-title').textContent = it.id;
@@ -353,6 +354,49 @@ $('#edit-form').onsubmit = async (e) => {
     toast(err.message);
   }
 };
+
+// ---------- stepping through the current results ----------
+// Prev/next follow the grid order; stepping replaces the history entry, so Back still closes.
+
+const gridIds = () => [...$('#grid').children].map((c) => c._item?.id).filter(Boolean);
+
+function updateSteps(id) {
+  const ids = gridIds(), i = ids.indexOf(id);
+  $('#item-prev').hidden = i <= 0;
+  $('#item-next').hidden = i < 0 || (i === ids.length - 1 && !cursor);
+}
+
+async function step(dir) {
+  if (!current) return;
+  let ids = gridIds(), i = ids.indexOf(current.id);
+  if (i < 0) return;
+  if (dir > 0 && i === ids.length - 1 && cursor) {
+    await loadMore();
+    ids = gridIds();
+  }
+  const next = ids[i + dir];
+  if (!next) return;
+  cards.get(next)?.scrollIntoView({ block: 'nearest' });
+  nav({ item: next });
+  applyRoute();
+}
+
+$('#item-prev').onclick = () => step(-1);
+$('#item-next').onclick = () => step(1);
+document.addEventListener('keydown', (e) => {
+  if (!$('#item').open || e.target.closest?.('input, textarea, select')) return;
+  if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === 'ArrowRight') step(1);
+});
+let touch = null;
+$('.media-wrap').addEventListener('touchstart', (e) => { touch = e.touches[0]; }, { passive: true });
+$('.media-wrap').addEventListener('touchend', (e) => {
+  const t = e.changedTouches[0];
+  if (!touch) return;
+  const dx = t.clientX - touch.clientX, dy = t.clientY - touch.clientY;
+  touch = null;
+  if (Math.abs(dx) > 60 && Math.abs(dx) > 2 * Math.abs(dy)) step(dx < 0 ? 1 : -1);
+});
 
 $('#item-retag').onclick = async () => {
   try {

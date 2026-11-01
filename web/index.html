@@ -50,7 +50,11 @@
 
 <dialog id="item">
   <div class="dlg-head"><span id="item-title"></span><button class="close" value="close">✕</button></div>
-  <div class="media" id="item-media"></div>
+  <div class="media-wrap">
+    <div class="media" id="item-media"></div>
+    <button id="item-prev" class="step prev" title="Previous (←)" aria-label="Previous">‹</button>
+    <button id="item-next" class="step next" title="Next (→)" aria-label="Next">›</button>
+  </div>
   <div class="actions">
     <button id="item-copy" class="primary">Copy link</button>
     <a id="item-page" class="button" target="_blank" rel="noopener">Open page</a>
