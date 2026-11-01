@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Nookle: add x.com posts
-// @namespace    https://i.naa.gg
+// @namespace    https://n.naa.gg
 // @version      0.1.0
 // @description  Adds an "Add to Nookle" button to x.com posts with media
 // @match        https://x.com/*
@@ -11,7 +11,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
-// @connect      i.naa.gg
+// @connect      n.naa.gg
 // @connect      localhost
 // @connect      127.0.0.1
 // @run-at       document-idle
@@ -71,7 +71,7 @@ function main() {
   const done = new Set(); // post URLs added this session
   const busy = new Set();
 
-  const base = () => GM_getValue("base", "https://i.naa.gg").replace(/\/+$/, "");
+  const base = () => GM_getValue("base", "https://n.naa.gg").replace(/\/+$/, "");
   const askKey = () => {
     const k = prompt("Nookle rw API key (nk_...)", GM_getValue("key", ""));
     if (k !== null) GM_setValue("key", k.trim());
@@ -80,7 +80,7 @@ function main() {
   GM_registerMenuCommand("Set Nookle API key", askKey);
   GM_registerMenuCommand("Set Nookle API URL", () => {
     const u = prompt("Nookle API URL", base());
-    if (u !== null) GM_setValue("base", u.trim() || "https://i.naa.gg");
+    if (u !== null) GM_setValue("base", u.trim() || "https://n.naa.gg");
   });
 
   const style = document.createElement("style");

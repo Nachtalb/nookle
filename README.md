@@ -2,7 +2,7 @@
 
 Self-hosted meme collection: search by keywords, meme text and emoji, a
 Telegram inline bot, an x.com userscript and public asset links at
-`https://i.naa.gg`.
+`https://n.naa.gg`.
 
 - `docs/API.md`: the HTTP API every part talks to
 - `crates/nookle-core`: API types shared by the backend and all Rust clients

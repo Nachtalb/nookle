@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
         .init();
     let cfg = Config {
         public_url: env("NOOKLE_PUBLIC_URL")
-            .unwrap_or_else(|| "https://i.naa.gg".into())
+            .unwrap_or_else(|| "https://n.naa.gg".into())
             .trim_end_matches('/')
             .into(),
         data: env("NOOKLE_DATA").unwrap_or_else(|| "data".into()).into(),

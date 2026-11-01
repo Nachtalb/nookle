@@ -1,7 +1,7 @@
 # Nookle API
 
 One backend serves the JSON API under `/api`, the public assets and the view
-pages. Public base URL: `https://i.naa.gg`. Mock: `python3 mock/server.py`
+pages. Public base URL: `https://n.naa.gg`. Mock: `python3 mock/server.py`
 (see `mock/README.md`).
 
 ## Auth
@@ -48,9 +48,9 @@ DELETE /api/keys/{id}             admin     -> 204
   "id": "bUiLdGrn",
   "kind": "image",
   "mime": "image/webp",
-  "url": "https://i.naa.gg/bUiLdGrn.webp",
-  "thumb_url": "https://i.naa.gg/bUiLdGrn/thumb.webp",
-  "page_url": "https://i.naa.gg/bUiLdGrn",
+  "url": "https://n.naa.gg/bUiLdGrn.webp",
+  "thumb_url": "https://n.naa.gg/bUiLdGrn/thumb.webp",
+  "page_url": "https://n.naa.gg/bUiLdGrn",
   "width": 640, "height": 480, "duration_ms": null, "has_audio": false, "size": 11700,
   "style": "cartoon",
   "tags": ["build", "ci"],

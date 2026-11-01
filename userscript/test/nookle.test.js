@@ -38,6 +38,6 @@ test("errorText", () => {
   assert.match(errorText(401, e("login"), "b"), /Bad API key/);
   assert.equal(errorText(422, e("nope"), "b"), "Nookle can't import this URL: nope");
   assert.equal(errorText(502, e("fx down"), "b"), "Nookle couldn't download the post: fx down");
-  assert.equal(errorText(0, "", "https://i.naa.gg"), "Can't reach https://i.naa.gg");
+  assert.equal(errorText(0, "", "https://n.naa.gg"), "Can't reach https://n.naa.gg");
   assert.equal(errorText(500, "<html>", "b"), "Nookle error 500");
 });

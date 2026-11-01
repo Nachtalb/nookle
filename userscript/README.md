@@ -15,8 +15,8 @@ green checkmark marks posts added in this session.
    rw API key (`nk_...`, create one in the Nookle web UI).
 
 The manager's menu has "Set Nookle API key" and "Set Nookle API URL"
-(default `https://i.naa.gg`). For the mock, set the URL to
-`http://127.0.0.1:8787`; `@connect` allows `i.naa.gg`, `localhost` and
+(default `https://n.naa.gg`). For the mock, set the URL to
+`http://127.0.0.1:8787`; `@connect` allows `n.naa.gg`, `localhost` and
 `127.0.0.1`.
 
 ## Tests

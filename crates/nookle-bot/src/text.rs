@@ -133,8 +133,8 @@ mod tests {
     fn item(tg: Option<(TelegramType, &str)>, tags: &[&str], text: &str) -> Item {
         let mut it: Item = serde_json::from_value(serde_json::json!({
             "id": "abcd1234", "kind": "image", "mime": "image/webp",
-            "url": "https://i.naa.gg/abcd1234.webp", "thumb_url": "https://i.naa.gg/abcd1234/thumb.webp",
-            "page_url": "https://i.naa.gg/abcd1234", "width": 1, "height": 1, "duration_ms": null,
+            "url": "https://n.naa.gg/abcd1234.webp", "thumb_url": "https://n.naa.gg/abcd1234/thumb.webp",
+            "page_url": "https://n.naa.gg/abcd1234", "width": 1, "height": 1, "duration_ms": null,
             "has_audio": false, "size": 1, "style": null, "tags": tags, "text": text, "sources": [],
             "hits": 0, "added_at": "2026-10-30T12:00:00Z", "last_used_at": null,
             "status": "ready", "analysis": "pending", "telegram": null
@@ -218,7 +218,7 @@ mod tests {
         let it = item(None, &[], "");
         assert_eq!(
             item_summary(&it),
-            "✅ https://i.naa.gg/abcd1234\nKind: image\nTags: ⏳ tagging…"
+            "✅ https://n.naa.gg/abcd1234\nKind: image\nTags: ⏳ tagging…"
         );
         assert!(duplicate_text(DupMatch::Near, Some(3), &it).contains("distance 3"));
         let res = ImportResponse {
@@ -241,7 +241,7 @@ mod tests {
         };
         assert_eq!(
             import_summary(&res),
-            "1. ✅ added image: https://i.naa.gg/abcd1234\n2. ♻️ already there: https://i.naa.gg/abcd1234"
+            "1. ✅ added image: https://n.naa.gg/abcd1234\n2. ♻️ already there: https://n.naa.gg/abcd1234"
         );
     }
 }

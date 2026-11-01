@@ -206,8 +206,8 @@ mod tests {
         let s = &manifest["items"][0];
         let json = serde_json::json!({
             "id": s["id"], "kind": s["kind"], "mime": "image/webp",
-            "url": "https://i.naa.gg/bUiLdGrn.webp", "thumb_url": "https://i.naa.gg/bUiLdGrn/thumb.webp",
-            "page_url": "https://i.naa.gg/bUiLdGrn", "width": 640, "height": 480, "duration_ms": null,
+            "url": "https://n.naa.gg/bUiLdGrn.webp", "thumb_url": "https://n.naa.gg/bUiLdGrn/thumb.webp",
+            "page_url": "https://n.naa.gg/bUiLdGrn", "width": 640, "height": 480, "duration_ms": null,
             "has_audio": false, "size": 11700, "style": "3d", "tags": s["tags"], "text": s["text"],
             "sources": s["sources"], "hits": 42, "added_at": "2026-10-30T12:00:00Z", "last_used_at": null,
             "status": "ready", "analysis": "done", "telegram": {"type": "photo", "file_id": "x"}
