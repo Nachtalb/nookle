@@ -174,3 +174,5 @@ h3 { margin: 1.2em 0 .4em; }
 .q-main .mini { display: inline; padding: 0; background: none; border: 0; color: var(--accent); font-size: inherit; text-decoration: underline; }
 .q-main .mini img { display: none; }
 .q-extra button { padding: .25em .5em; font-size: .85em; }
+
+header button.icon { display: inline-flex; align-items: center; justify-content: center; padding: 0; width: 2.4em; height: 2.4em; }
