@@ -37,6 +37,18 @@ pub fn emoji_keywords(emoji: &str) -> Option<&'static [String]> {
         .map(Vec::as_slice)
 }
 
+/// Every emoji with its keywords, one per line (`😏 smirk, smug, …`), sorted, so the text is the same
+/// on every call: the tagger's emotion mapper keeps it as a cached prompt prefix.
+pub fn emoji_listing() -> String {
+    let mut lines: Vec<String> = EMOJI
+        .0
+        .iter()
+        .map(|(e, kws)| format!("{e} {}", kws.join(", ")))
+        .collect();
+    lines.sort();
+    lines.join("\n")
+}
+
 /// Greedy split of a token made only of known emoji.
 pub fn split_emoji(tok: &str) -> Option<Vec<String>> {
     let chars: Vec<char> = tok.chars().filter(|&c| c != '\u{fe0f}').collect();
