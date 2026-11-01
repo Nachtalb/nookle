@@ -36,3 +36,28 @@ export const emojiNames = Object.keys(uni.map.colons)
 export function colonsToEmoji(text) {
   return text.includes(':') ? uni.replace_colons(text) : text;
 }
+
+/**
+ * Emoji by word for the tag autocomplete: Telegram's emoji keywords plus the aliases the server
+ * has learned (smug -> 😏), as {name: word, char, word: true}. Fetched once, on first use.
+ */
+let words;
+export function emojiWords(api) {
+  words ??= Promise.all([
+    fetch('/emoji-keywords.json').then((r) => r.json()).then((f) => f.keywords).catch(() => ({})),
+    api('/aliases').then((r) => r.aliases).catch(() => ({})),
+  ]).then(([kw, aliases]) => {
+    const out = [], seen = new Set();
+    for (const map of [aliases, kw]) {
+      for (const [w, chars] of Object.entries(map)) {
+        for (const char of chars) {
+          if (seen.has(w + char)) continue;
+          seen.add(w + char);
+          out.push({ name: w, char, word: true });
+        }
+      }
+    }
+    return out;
+  });
+  return words;
+}

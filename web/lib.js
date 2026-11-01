@@ -60,7 +60,7 @@ export function rankSuggestions(input, tags, emoji, limit = 8) {
     if (out.length >= limit) break;
     if (seen.has(e.char)) continue;
     seen.add(e.char);
-    out.push({ value: e.char, label: e.char, hint: ':' + e.name + ':' });
+    out.push({ value: e.char, label: e.char, hint: e.word ? e.name : ':' + e.name + ':' });
   }
   return out.slice(0, limit);
 }

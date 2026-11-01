@@ -461,6 +461,9 @@ class Handler(BaseHTTPRequestHandler):
                 except ApiError as e:
                     return self._send(e.status, {"error": e.code, "message": e.message, **e.extra})
         if self.web and self.command in ("GET", "HEAD"):
+            if path == "/emoji-keywords.json":  # the web image copies it in from assets/
+                kw = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", "emoji_keywords_en.json")
+                return self._send(200, open(kw, "rb").read(), "application/json")
             f = os.path.realpath(os.path.join(self.web, path.lstrip("/") or "index.html"))
             if f.startswith(self.web + os.sep) and os.path.isfile(f):
                 return self._send(200, open(f, "rb").read(), WEB_TYPES.get(os.path.splitext(f)[1], "application/octet-stream"))

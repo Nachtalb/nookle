@@ -1,5 +1,5 @@
 import { chips, parseTags, parseLines, fmtSize, fmtDuration, fmtDate, rankSuggestions, splitEmoji, markSegments } from './lib.js';
-import { emojify, emojiNames, colonsToEmoji } from './emoji.js';
+import { emojify, emojiNames, emojiWords, colonsToEmoji } from './emoji.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, props = {}, ...kids) => {
@@ -381,7 +381,9 @@ function tagEditor(initial, { onClick, onChange, onRemove, hits = [] }) {
     timer = setTimeout(async () => {
       const r = await api('/tags?' + new URLSearchParams({ q: q.trim().toLowerCase(), limit: 8 })).catch(() => ({ tags: [] }));
       if (mine !== seq) return;
-      show(rankSuggestions(q, r.tags.filter((t) => !tags.includes(t.tag)), emojiNames));
+      const words = await emojiWords(api);
+      if (mine !== seq) return;
+      show(rankSuggestions(q, r.tags.filter((t) => !tags.includes(t.tag)), [...emojiNames, ...words]));
     }, 120);
   };
   const remove = (t) => { set(tags.filter((y) => y !== t)); onRemove?.(t); };
