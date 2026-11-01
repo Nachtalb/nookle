@@ -245,7 +245,6 @@ function showItem(it) {
     : it.mime === 'video/mp4' ? el('video', { src: it.url, controls: true, loop: true, playsInline: true, autoplay: true })
       : el('img', { src: it.url, alt: it.text });
   $('#item-media').replaceChildren(m);
-  $('#item-page').href = it.page_url;
   const row = (k, v) => v || v === 0 ? [el('dt', { textContent: k }), el('dd', {}, v)] : [];
   const tags = tagEditor(it.tags, {
     onClick: (t) => { nav({ q: t, item: null }, true); applyRoute(); },
@@ -389,13 +388,6 @@ async function copy(text) {
 function used(it) {
   api(`/items/${it.id}/hit`, { method: 'POST' }).then(() => { it.hits++; it.last_used_at = new Date().toISOString(); if (current?.id === it.id) showItem(it); }).catch(() => {});
 }
-
-$('#item-copy').onclick = async () => {
-  const it = current;
-  await copy(it.url);
-  toast('Link copied');
-  used(it);
-};
 
 // The share sheet needs a recent tap; a slow download can outlive it, so the file is kept
 // and a second tap shares it at once.
