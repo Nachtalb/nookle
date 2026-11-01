@@ -109,7 +109,7 @@ dialog::backdrop { background: #000c; }
 .media { display: grid; place-items: center; background: #000; border-radius: 8px; min-height: 6em; }
 .media img, .media video { max-width: 100%; max-height: 65dvh; display: block; }
 .actions { display: flex; flex-wrap: wrap; gap: .5em; margin: .8em 0; }
-.text { white-space: pre-wrap; background: var(--panel); padding: .5em .7em; border-radius: 8px; }
+.text { white-space: pre-wrap; background: var(--panel); padding: .5em .7em; border-radius: 8px; border: 1px solid transparent; }
 dl { display: grid; grid-template-columns: auto 1fr; gap: .3em 1em; margin: .8em 0; }
 dt { color: var(--muted); }
 dd { margin: 0; word-break: break-word; }
@@ -195,3 +195,9 @@ header button.icon { display: inline-flex; align-items: center; justify-content:
 #item-info.editing > .text, #item-info.editing .ro { display: none; }
 #item-info #edit-form { margin: .6em 0; }
 .actions .icon.active { color: var(--accent); border-color: var(--accent); }
+
+/* the edit box for the text takes the text's own look, so edit mode changes nothing but the caret */
+#edit-form textarea.text { display: block; width: 100%; margin: 1em 0; border: 1px solid transparent;
+  font: inherit; line-height: inherit; color: var(--fg); resize: none; overflow: hidden; }
+#edit-form textarea.text:focus { border-color: var(--accent); }
+#item-info > .text[title] { cursor: text; }

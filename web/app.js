@@ -310,7 +310,8 @@ function showItem(it) {
 
 // The item text with the pieces that matched the search wrapped in <mark>.
 function markedText(text, pieces) {
-  const p = el('p', { className: 'text' });
+  const p = el('p', { className: 'text', title: canWrite() ? 'Double-click to edit' : '' });
+  if (canWrite()) p.ondblclick = () => { nav({ edit: '1' }, true); applyRoute(); };
   for (const s of markSegments(text, pieces)) p.append(s.hit ? emojify(el('mark'), s.text) : emojify(el('span'), s.text));
   return p;
 }
@@ -542,8 +543,17 @@ function openEdit() {
   f.style.value = it.style || '';
   f.sources.value = it.sources.map((s) => s.url).join('\n');
   setEditing(true);
+  fitText();
   f.text.focus();
+  f.text.setSelectionRange(f.text.value.length, f.text.value.length);
 }
+// The text box grows with its content, so edit mode looks like the text it replaces.
+function fitText() {
+  const t = $('#edit-form').text;
+  t.style.height = 'auto';
+  t.style.height = t.scrollHeight + 2 + 'px';
+}
+$('#edit-form').text.addEventListener('input', fitText);
 function leaveEdit() {
   if (route().edit && history.state?.pushed) history.back();
   else { nav({ edit: null }); setEditing(false); }
