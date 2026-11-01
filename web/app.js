@@ -436,15 +436,22 @@ $('#item-share-link').onclick = async () => {
   }
 };
 
-$('#item-edit').onclick = () => {
+// Edit mode is its own history entry (`&edit=1`), so Back leaves edit mode instead of the item.
+function openEdit() {
   const f = $('#edit-form'), it = current;
+  if (!it || !f.hidden) return;
   f.text.value = it.text;
   f.style.value = it.style || '';
   f.sources.value = it.sources.map((s) => s.url).join('\n');
   f.hidden = false;
   f.text.focus();
-};
-$('#edit-cancel').onclick = () => ($('#edit-form').hidden = true);
+}
+function leaveEdit() {
+  if (route().edit && history.state?.pushed) history.back();
+  else { nav({ edit: null }); $('#edit-form').hidden = true; }
+}
+$('#item-edit').onclick = () => { nav({ edit: '1' }, true); applyRoute(); };
+$('#edit-cancel').onclick = leaveEdit;
 
 $('#edit-form').onsubmit = async (e) => {
   e.preventDefault();
@@ -457,6 +464,7 @@ $('#edit-form').onsubmit = async (e) => {
     showItem(it);
     cards.get(it.id)?.replaceWith(card(it));
     toast('Saved');
+    leaveEdit();
   } catch (err) {
     toast(err.message);
   }
@@ -484,7 +492,7 @@ async function step(dir) {
   const next = ids[i + dir];
   if (!next) return;
   cards.get(next)?.scrollIntoView({ block: 'nearest' });
-  nav({ item: next });
+  nav({ item: next, edit: null });
   applyRoute();
 }
 
@@ -706,7 +714,7 @@ async function loadBlocked() {
 
 function route() {
   const p = new URLSearchParams(location.search);
-  return { q: p.get('q') || '', sort: p.get('sort') || 'used', item: p.get('item'), view: p.get('view') };
+  return { q: p.get('q') || '', sort: p.get('sort') || 'used', item: p.get('item'), view: p.get('view'), edit: p.get('edit') };
 }
 
 function nav(patch, push = false) {
@@ -714,8 +722,10 @@ function nav(patch, push = false) {
   const p = new URLSearchParams();
   if (r.q) p.set('q', r.q);
   if (r.sort && r.sort !== 'used') p.set('sort', r.sort);
-  if (r.item) p.set('item', r.item);
-  else if (r.view) p.set('view', r.view);
+  if (r.item) {
+    p.set('item', r.item);
+    if (r.edit) p.set('edit', r.edit);
+  } else if (r.view) p.set('view', r.view);
   const url = '/' + (p.size ? '?' + p : '');
   if (url === location.pathname + location.search) return;
   // `pushed` marks overlay entries we created, so closing can go Back instead of stacking.
@@ -746,7 +756,7 @@ function applyRoute() {
     radio.checked = true;
     search();
   }
-  if (r.item) loadItem(r.item);
+  if (r.item) loadItem(r.item).then(() => (r.edit ? openEdit() : ($('#edit-form').hidden = true)));
   else if ($('#item').open) $('#item').close();
   for (const [view, d] of Object.entries(dialogs)) {
     if (!r.item && r.view === view) {
