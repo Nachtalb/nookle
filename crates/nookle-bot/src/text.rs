@@ -215,6 +215,41 @@ pub fn item_summary(item: &Item) -> String {
     format!("✅ {}\nKind: {}\nTags: {tags}", item.page_url, kind(item))
 }
 
+/// Marks a tag button as "to remove".
+pub const REMOVE_MARK: &str = "❌ ";
+pub const TAG_COLUMNS: usize = 4;
+
+/// Tag button labels in rows of [`TAG_COLUMNS`]; the caller adds the apply row.
+pub fn tag_rows(tags: &[String]) -> Vec<Vec<String>> {
+    tags.chunks(TAG_COLUMNS).map(|c| c.to_vec()).collect()
+}
+
+/// Flips a tag button between kept and marked for removal.
+pub fn toggle_label(label: &str) -> String {
+    match label.strip_prefix(REMOVE_MARK) {
+        Some(tag) => tag.to_string(),
+        None => format!("{REMOVE_MARK}{label}"),
+    }
+}
+
+/// The tags whose buttons are marked for removal.
+pub fn marked_tags<'a>(labels: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    labels
+        .into_iter()
+        .filter_map(|l| l.strip_prefix(REMOVE_MARK))
+        .map(str::to_string)
+        .collect()
+}
+
+/// The apply button's label for `n` marked tags.
+pub fn apply_label(n: usize) -> String {
+    if n == 0 {
+        "Tap tags to remove them".into()
+    } else {
+        format!("🗑 Remove {n}")
+    }
+}
+
 pub fn duplicate_text(dup: DupMatch, distance: Option<u32>, existing: &Item) -> String {
     match dup {
         DupMatch::Exact => format!("♻️ Already in the collection: {}", existing.page_url),
@@ -265,6 +300,18 @@ mod tests {
             file_id: id.into(),
         });
         it
+    }
+
+    #[test]
+    fn tag_buttons() {
+        let tags: Vec<String> = (1..=6).map(|i| format!("t{i}")).collect();
+        let rows = tag_rows(&tags);
+        assert_eq!(rows.iter().map(Vec::len).collect::<Vec<_>>(), [4, 2]);
+        let marked = toggle_label("rock lee");
+        assert_eq!(marked, "❌ rock lee");
+        assert_eq!(toggle_label(&marked), "rock lee");
+        assert_eq!(marked_tags(["cat", &marked, "dog"]), ["rock lee"]);
+        assert_eq!(apply_label(2), "🗑 Remove 2");
     }
 
     #[test]

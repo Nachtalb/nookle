@@ -16,11 +16,14 @@ use nookle_bot::{
 use nookle_core::model::{Analysis, DupMatch, ImportRequest, Item, Status};
 use teloxide::{
     net::Download,
-    payloads::{AnswerInlineQuerySetters, EditMessageTextSetters, SendMessageSetters},
+    payloads::{
+        AnswerCallbackQuerySetters, AnswerInlineQuerySetters, EditMessageTextSetters,
+        SendMessageSetters,
+    },
     prelude::*,
     types::{
-        FileId, FileMeta, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Me,
-        MessageEntityKind, MessageOrigin, ReplyParameters, User,
+        FileId, FileMeta, InlineKeyboardButton, InlineKeyboardButtonKind, InlineKeyboardMarkup,
+        LinkPreviewOptions, Me, MessageEntityKind, MessageOrigin, ReplyParameters, User,
     },
     utils::command::BotCommands,
 };
@@ -306,7 +309,7 @@ async fn retag(
         last,
         to.text().is_some_and(|t| t.starts_with('✅')),
     ) {
-        edit(bot, to, text::item_summary(&item), None).await;
+        edit(bot, to, text::item_summary(&item), tag_keyboard(&item)).await;
     }
     reply(bot, msg, &out.join("\n")).await
 }
@@ -403,6 +406,10 @@ async fn callback(
     cfg: Cfg,
     pending: Pending,
 ) -> ResponseResult<()> {
+    if let Some(data) = q.data.as_deref().filter(|d| d.starts_with("tag")) {
+        let data = data.to_string();
+        return tag_button(&bot, q, &data, &api, &cfg).await;
+    }
     let key = q
         .data
         .as_deref()
@@ -438,12 +445,12 @@ async fn ingest(
             edit(bot, status, "⚙️ Processing…".into(), None).await;
             match wait_ready(api, *item).await {
                 Ok(item) if item.status == Status::Ready && item.analysis == Analysis::Pending => {
-                    edit(bot, status, text::item_summary(&item), None).await;
+                    edit(bot, status, text::item_summary(&item), tag_keyboard(&item)).await;
                     // The tagger runs on another machine; show its tags once they land.
                     let item = wait_tagged(api, item).await;
-                    (text::item_summary(&item), None)
+                    (text::item_summary(&item), tag_keyboard(&item))
                 }
-                Ok(item) => (text::item_summary(&item), None),
+                Ok(item) => (text::item_summary(&item), tag_keyboard(&item)),
                 Err(e) => (format!("❌ {e:#}"), None),
             }
         }
@@ -526,6 +533,127 @@ async fn wait_tagged(api: &Api, mut item: Item) -> Item {
         }
     }
     item
+}
+
+/// One button per tag (4 per row) and an apply row: tapping a tag marks it with ❌,
+/// apply removes the marked ones. The marks live in the button labels, so no state is kept.
+fn tag_keyboard(item: &Item) -> Option<InlineKeyboardMarkup> {
+    if item.status != Status::Ready || item.tags.is_empty() {
+        return None;
+    }
+    Some(keyboard(
+        text::tag_rows(&item.tags)
+            .into_iter()
+            .map(|r| r.into_iter().collect())
+            .collect(),
+    ))
+}
+
+/// Builds the markup from label rows; button `i` (row-major) toggles with `tag:i`.
+fn keyboard(rows: Vec<Vec<String>>) -> InlineKeyboardMarkup {
+    let mut i = 0;
+    let mut out: Vec<Vec<InlineKeyboardButton>> = Vec::new();
+    for row in &rows {
+        out.push(
+            row.iter()
+                .map(|l| {
+                    i += 1;
+                    InlineKeyboardButton::callback(l.clone(), format!("tag:{}", i - 1))
+                })
+                .collect(),
+        );
+    }
+    let marked = text::marked_tags(rows.iter().flatten().map(String::as_str)).len();
+    out.push(vec![InlineKeyboardButton::callback(
+        text::apply_label(marked),
+        "tagapply",
+    )]);
+    InlineKeyboardMarkup::new(out)
+}
+
+/// Tag button rows of a message's keyboard (without the apply row).
+fn tag_labels(msg: &Message) -> Vec<Vec<String>> {
+    let Some(kb) = msg.reply_markup() else {
+        return Vec::new();
+    };
+    kb.inline_keyboard
+        .iter()
+        .map(|row| {
+            row.iter()
+                .filter(|b| {
+                    matches!(&b.kind, InlineKeyboardButtonKind::CallbackData(d) if d.starts_with("tag:"))
+                })
+                .map(|b| b.text.clone())
+                .collect::<Vec<_>>()
+        })
+        .filter(|r: &Vec<String>| !r.is_empty())
+        .collect()
+}
+
+async fn tag_button(
+    bot: &Bot,
+    q: CallbackQuery,
+    data: &str,
+    api: &Api,
+    cfg: &Cfg,
+) -> ResponseResult<()> {
+    let (Some(msg), true) = (q.regular_message().cloned(), cfg.allows(&q.from)) else {
+        bot.answer_callback_query(q.id).await?;
+        return Ok(());
+    };
+    let mut rows = tag_labels(&msg);
+    if let Some(i) = data
+        .strip_prefix("tag:")
+        .and_then(|i| i.parse::<usize>().ok())
+    {
+        if let Some(label) = rows.iter_mut().flatten().nth(i) {
+            *label = text::toggle_label(label);
+        }
+        bot.answer_callback_query(q.id).await?;
+        if let Err(e) = bot
+            .edit_message_reply_markup(msg.chat.id, msg.id)
+            .reply_markup(keyboard(rows))
+            .await
+        {
+            warn!("toggle tag: {e}");
+        }
+        return Ok(());
+    }
+    let remove = text::marked_tags(rows.iter().flatten().map(String::as_str));
+    let id = text::item_ids(msg.text().unwrap_or_default())
+        .into_iter()
+        .next();
+    let (Some(id), false) = (id, remove.is_empty()) else {
+        bot.answer_callback_query(q.id)
+            .text("Tap the tags to remove first.")
+            .await?;
+        return Ok(());
+    };
+    let res = async {
+        let item = api.item(&id).await?;
+        let tags: Vec<String> = item
+            .tags
+            .into_iter()
+            .filter(|t| !remove.contains(t))
+            .collect();
+        api.set_tags(&id, &tags).await
+    }
+    .await;
+    match res {
+        Ok(item) => {
+            bot.answer_callback_query(q.id)
+                .text(format!("Removed {}", remove.join(", ")))
+                .await?;
+            edit(bot, &msg, text::item_summary(&item), tag_keyboard(&item)).await;
+        }
+        Err(e) => {
+            bot.answer_callback_query(q.id)
+                .text(format!("❌ {e:#}"))
+                .show_alert(true)
+                .await?;
+        }
+    }
+    Ok(())
 }
 
 async fn edit(bot: &Bot, msg: &Message, text: String, markup: Option<InlineKeyboardMarkup>) {
