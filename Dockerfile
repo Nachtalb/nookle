@@ -1,5 +1,6 @@
-# Backend image: nookle-api (default), nookle-bot and nookle-tagger on distroless,
-# plus a static ffmpeg/ffprobe 9 trimmed to the codecs Nookle reads and writes.
+# Three scratch images from one compile: `bot` (nookle-bot), `tagger` (nookle-tagger) and the
+# default `api` (nookle-api plus a static ffmpeg/ffprobe 9 trimmed to the codecs Nookle reads
+# and writes). Everything is static musl and TLS uses bundled webpki roots, so no base is needed.
 FROM alpine:3.22 AS ffmpeg
 RUN apk add --no-cache build-base nasm cmake meson ninja pkgconf curl xz \
     x264-dev libwebp-dev libwebp-static zlib-dev zlib-static
@@ -47,12 +48,26 @@ COPY --from=plan /src/recipe.json recipe.json
 RUN cargo chef cook --release --locked -p nookle-api -p nookle-bot -p nookle-tagger --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --locked -p nookle-api -p nookle-bot -p nookle-tagger \
- && mkdir -p /out/data && cp target/release/nookle-api target/release/nookle-bot target/release/nookle-tagger /out/
+ && mkdir -p /out/data && mkdir -m 1777 /out/tmp \
+ && cp target/release/nookle-api target/release/nookle-bot target/release/nookle-tagger /out/
 
-FROM gcr.io/distroless/static-debian13:nonroot
+FROM scratch AS bot
+COPY --from=build /out/tmp /tmp
+COPY --from=build /out/nookle-bot /nookle-bot
+USER 65532:65532
+ENTRYPOINT ["/nookle-bot"]
+
+FROM scratch AS tagger
+COPY --from=build /out/nookle-tagger /nookle-tagger
+USER 65532:65532
+ENTRYPOINT ["/nookle-tagger"]
+
+FROM scratch AS api
+COPY --from=build /out/tmp /tmp
 COPY --from=ffmpeg /out/ffmpeg /out/ffprobe /usr/local/bin/
-COPY --from=build /out/nookle-api /out/nookle-bot /out/nookle-tagger /usr/local/bin/
+COPY --from=build /out/nookle-api /nookle-api
 COPY --from=build --chown=65532:65532 /out/data /data
-ENV NOOKLE_DATA=/data NOOKLE_BIND=0.0.0.0:8080
+USER 65532:65532
+ENV NOOKLE_DATA=/data NOOKLE_BIND=0.0.0.0:8080 PATH=/usr/local/bin
 EXPOSE 8080
-ENTRYPOINT ["nookle-api"]
+ENTRYPOINT ["/nookle-api"]
