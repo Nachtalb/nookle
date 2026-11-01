@@ -14,7 +14,7 @@ ff -f lavfi -i "gradients=s=640x480:c0=0x3050a0:c1=0xe07030:seed=7" -frames:v 1 
 ff -i inputs/build_green.png -vf scale=480:-1 -q:v 6 inputs/build_green_near_dup.jpg
 ff -f lavfi -i "testsrc2=s=640x480" -frames:v 1 -vf "$(caption 'just a photo' 36 420)" -q:v 4 inputs/photo.jpg
 ff -f lavfi -i "color=c=black@0.0:s=320x320,format=rgba" -frames:v 1 \
-   -vf "drawbox=x=60:y=60:w=200:h=200:color=yellow@1:t=fill,$(caption 'OK' 64 120)" inputs/transparent.png
+   -vf "drawbox=x=60:y=60:w=200:h=200:color=yellow@1:t=fill:replace=1,$(caption 'OK' 64 120)" inputs/transparent.png
 ff -f lavfi -i "testsrc=s=320x240:r=12:d=2" -vf "$(caption 'yes yes yes' 28 200),split[a][b];[a]palettegen[p];[b][p]paletteuse" -loop 0 inputs/dance.gif
 ff -f lavfi -i "mandelbrot=s=360x200:r=15" -t 4 -vf "$(caption 'silent loop' 32 220)" -an \
    -c:v libx264 -pix_fmt yuv420p -movflags +faststart inputs/silent_short.mp4
