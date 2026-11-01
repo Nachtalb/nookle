@@ -570,7 +570,13 @@ def items_list(h):
     page = hits[offset:offset + limit]
     nxt = base64.urlsafe_b64encode(str(offset + limit).encode()).decode() if offset + limit < len(hits) else None
     pq_out = dict(pq, added_after=iso(pq["added_after"]), added_before=iso(pq["added_before"]))
-    h._send(200, {"items": [h.store.public(it) for it in page], "next_cursor": nxt, "query": pq_out})
+    hl = {}
+    for it in page:
+        tags = [t for t in it["tags"] if any(w.startswith(term) for term in pq["terms"] for w in [t, *t.split(" ")])]
+        text = [term for term in pq["terms"] if term in it["text"].lower()]
+        if tags or text:
+            hl[it["id"]] = {"tags": tags, "text": text}
+    h._send(200, {"items": [h.store.public(it) for it in page], "next_cursor": nxt, "query": pq_out, "highlights": hl})
 
 
 @route("GET", "/api/items/([A-Za-z0-9]+)", "ro")

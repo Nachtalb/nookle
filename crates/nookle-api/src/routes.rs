@@ -241,14 +241,20 @@ pub async fn items_list(State(app): S, _auth: Auth, Query(p): Query<ListQ>) -> R
         .filter(|r| search::matches(&r.item, &pq, &aliases))
         .map(|r| r.item.clone())
         .collect();
-    drop(aliases);
     search::sort(&mut hits, sort);
     let next_cursor = (offset + limit < hits.len()).then(|| (offset + limit).to_string());
-    let items = hits.into_iter().skip(offset).take(limit).collect();
+    let items: Vec<Item> = hits.into_iter().skip(offset).take(limit).collect();
+    let highlights = items
+        .iter()
+        .map(|it| (it.id.clone(), search::highlight(it, &pq, &aliases)))
+        .filter(|(_, h)| !h.tags.is_empty() || !h.text.is_empty())
+        .collect();
+    drop(aliases);
     Ok(Json(ItemPage {
         items,
         next_cursor,
         query: pq,
+        highlights,
     }))
 }
 

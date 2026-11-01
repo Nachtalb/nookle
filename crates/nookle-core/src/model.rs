@@ -118,6 +118,17 @@ pub struct ItemPage {
     pub items: Vec<Item>,
     pub next_cursor: Option<String>,
     pub query: ParsedQuery,
+    /// Per item id: what matched the query, for highlighting. Items without a match are left out.
+    #[serde(default, skip_serializing_if = "std::collections::HashMap::is_empty")]
+    pub highlights: std::collections::HashMap<String, Highlight>,
+}
+
+/// What made an item match: its matching tags, and the pieces of its text (lowercase, as found)
+/// that matched a term, phrase or emoji keyword.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Highlight {
+    pub tags: Vec<String>,
+    pub text: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
