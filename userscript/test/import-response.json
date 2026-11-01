@@ -1,0 +1,106 @@
+{
+ "results": [
+  {
+   "index": 1,
+   "status": "created",
+   "item": {
+    "id": "KsEt7eWk",
+    "kind": "image",
+    "mime": "image/webp",
+    "url": "http://127.0.0.1:8791/KsEt7eWk.webp",
+    "thumb_url": "http://127.0.0.1:8791/KsEt7eWk/thumb.webp",
+    "page_url": "http://127.0.0.1:8791/KsEt7eWk",
+    "width": 480,
+    "height": 360,
+    "duration_ms": null,
+    "has_audio": false,
+    "size": 9975,
+    "style": null,
+    "tags": [],
+    "text": "",
+    "sources": [
+     {
+      "url": "https://x.com/nachtalb/status/1000000000000000001",
+      "site": "x",
+      "author": "nachtalb"
+     }
+    ],
+    "hits": 0,
+    "added_at": "2026-11-01T16:07:14Z",
+    "last_used_at": null,
+    "status": "processing",
+    "analysis": "pending",
+    "telegram": null
+   }
+  },
+  {
+   "index": 2,
+   "status": "created",
+   "item": {
+    "id": "ypq0utvM",
+    "kind": "video",
+    "mime": "video/mp4",
+    "url": "http://127.0.0.1:8791/ypq0utvM.mp4",
+    "thumb_url": "http://127.0.0.1:8791/ypq0utvM/thumb.webp",
+    "page_url": "http://127.0.0.1:8791/ypq0utvM",
+    "width": 320,
+    "height": 240,
+    "duration_ms": 3000,
+    "has_audio": true,
+    "size": 23940,
+    "style": null,
+    "tags": [],
+    "text": "",
+    "sources": [
+     {
+      "url": "https://x.com/nachtalb/status/1000000000000000001",
+      "site": "x",
+      "author": "nachtalb"
+     }
+    ],
+    "hits": 0,
+    "added_at": "2026-11-01T16:07:14Z",
+    "last_used_at": null,
+    "status": "processing",
+    "analysis": "pending",
+    "telegram": null
+   }
+  },
+  {
+   "index": 3,
+   "status": "duplicate",
+   "match": "exact",
+   "existing": {
+    "id": "dAnCe123",
+    "kind": "gif",
+    "mime": "image/webp",
+    "url": "http://127.0.0.1:8791/dAnCe123.webp",
+    "thumb_url": "http://127.0.0.1:8791/dAnCe123/thumb.webp",
+    "page_url": "http://127.0.0.1:8791/dAnCe123",
+    "width": 320,
+    "height": 240,
+    "duration_ms": 2000,
+    "has_audio": false,
+    "size": 51634,
+    "style": "anime",
+    "tags": [
+     "yes",
+     "dance",
+     "happy",
+     "celebration"
+    ],
+    "text": "yes yes yes",
+    "sources": [],
+    "hits": 17,
+    "added_at": "2026-10-22T16:07:13Z",
+    "last_used_at": "2026-11-01T13:07:13Z",
+    "status": "ready",
+    "analysis": "done",
+    "telegram": {
+     "type": "animation",
+     "file_id": "MOCK-animation-dAnCe123"
+    }
+   }
+  }
+ ]
+}
