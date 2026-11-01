@@ -84,7 +84,10 @@ pub fn random_id(n: usize) -> String {
 }
 
 pub fn hash_secret(s: &str) -> String {
-    format!("{:x}", Sha256::digest(s.as_bytes()))
+    Sha256::digest(s.as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
 }
 
 pub fn ext(kind: Kind) -> &'static str {
