@@ -32,4 +32,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - run: node --test web/ userscript/test/
+      - run: node --test web/*.test.js userscript/test/*.test.js
