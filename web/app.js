@@ -50,7 +50,7 @@ function showApp(scope) {
   $('#scope').textContent = scope;
   $('#login').hidden = true;
   $('#app').hidden = false;
-  search();
+  applyRoute();
 }
 
 $('#login-form').onsubmit = async (e) => {
@@ -76,10 +76,12 @@ const canWrite = () => ['rw', 'admin'].includes(document.body.dataset.scope);
 
 // ---------- search grid ----------
 
-let gen = 0, cursor = null, loading = false;
+let gen = 0, cursor = null, loading = false, searched = false;
 const cards = new Map();
 
 async function search() {
+  nav({ q: $('#q').value.trim(), sort: sortValue() });
+  searched = true;
   gen++;
   cursor = undefined;
   cards.clear();
@@ -91,7 +93,7 @@ async function loadMore() {
   if (loading || cursor === null) return;
   loading = true;
   const my = gen;
-  const p = new URLSearchParams({ q: $('#q').value.trim(), sort: document.querySelector('[name=sort]:checked').value, limit: 40 });
+  const p = new URLSearchParams({ q: $('#q').value.trim(), sort: sortValue(), limit: 40 });
   if (cursor) p.set('cursor', cursor);
   $('#grid-status').textContent = 'Loading…';
   let r, error;
@@ -105,6 +107,8 @@ async function loadMore() {
   $('#grid-status').textContent = cards.size ? '' : 'Nothing found';
   if (cursor && isVisible($('#sentinel'))) loadMore();
 }
+
+const sortValue = () => document.querySelector('[name=sort]:checked').value;
 
 const isVisible = (e) => e.getBoundingClientRect().top < innerHeight + 600;
 
@@ -157,12 +161,21 @@ $('#sort').onchange = search;
 
 let current = null;
 
-async function openItem(id) {
+function openItem(id) {
+  nav({ item: id, view: null }, true);
+  applyRoute();
+}
+
+async function loadItem(id) {
+  if (current?.id === id && $('#item').open) return;
   try {
-    showItem(await api('/items/' + id));
+    const it = await api('/items/' + id);
+    if (route().item !== id) return;
+    showItem(it);
     if (!$('#item').open) $('#item').showModal();
   } catch (err) {
     toast(err.message);
+    closeOverlay();
   }
 }
 
@@ -178,7 +191,7 @@ function showItem(it) {
   const row = (k, v) => v || v === 0 ? [el('dt', { textContent: k }), el('dd', {}, v)] : [];
   const tags = el('div', { className: 'chips' }, ...it.tags.map((t) => {
     const b = el('button', { className: 'chip term', textContent: t, type: 'button' });
-    b.onclick = () => { $('#q').value = t; $('#item').close(); search(); };
+    b.onclick = () => { nav({ q: t, item: null }); applyRoute(); };
     return b;
   }));
   const sources = it.sources.length ? el('div', {}, ...it.sources.map((s) =>
@@ -248,7 +261,7 @@ $('#item-delete').onclick = async () => {
     await api('/items/' + current.id, { method: 'DELETE' });
     cards.get(current.id)?.remove();
     cards.delete(current.id);
-    $('#item').close();
+    closeOverlay();
     toast('Deleted');
   } catch (err) {
     toast(err.message);
@@ -267,7 +280,7 @@ function addFiles(files) {
     $('#up-queue').append(li);
   }
   $('#up-go').disabled = !pending.length;
-  if (!$('#upload').open) $('#upload').showModal();
+  if (!$('#upload').open) openView('add');
 }
 
 $('#files').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
@@ -360,10 +373,10 @@ async function runImport(url, media, force) {
   }
 }
 
-$('#open-upload').onclick = () => $('#upload').showModal();
-$('#upload').onclose = () => {
+$('#open-upload').onclick = () => openView('add');
+$('#upload').addEventListener('close', () => {
   if (added) { added = false; search(); }
-};
+});
 
 // ---------- keys ----------
 
@@ -387,11 +400,7 @@ async function loadKeys() {
   }
 }
 
-$('#open-keys').onclick = () => {
-  $('#new-key').hidden = true;
-  $('#keys').showModal();
-  loadKeys();
-};
+$('#open-keys').onclick = () => openView('keys');
 
 $('#key-form').onsubmit = async (e) => {
   e.preventDefault();
@@ -412,6 +421,66 @@ $('#new-key-copy').onclick = async () => {
   toast('Key copied');
 };
 
+// ---------- routing ----------
+// The URL holds the search (?q=&sort=) and the open overlay (&item=<id> or &view=add|keys),
+// so items can be linked and Back closes what was opened.
+
+function route() {
+  const p = new URLSearchParams(location.search);
+  return { q: p.get('q') || '', sort: p.get('sort') || 'used', item: p.get('item'), view: p.get('view') };
+}
+
+function nav(patch, push = false) {
+  const r = { ...route(), ...patch };
+  const p = new URLSearchParams();
+  if (r.q) p.set('q', r.q);
+  if (r.sort && r.sort !== 'used') p.set('sort', r.sort);
+  if (r.item) p.set('item', r.item);
+  else if (r.view) p.set('view', r.view);
+  const url = '/' + (p.size ? '?' + p : '');
+  if (url === location.pathname + location.search) return;
+  // `pushed` marks overlay entries we created, so closing can go Back instead of stacking.
+  if (push) history.pushState({ pushed: true }, '', url);
+  else history.replaceState(history.state, '', url);
+}
+
+function openView(view) {
+  nav({ view, item: null }, !route().item && !route().view);
+  applyRoute();
+}
+
+function closeOverlay() {
+  const r = route();
+  if (!r.item && !r.view) return;
+  if (history.state?.pushed) history.back();
+  else { nav({ item: null, view: null }); applyRoute(); }
+}
+
+const dialogs = { add: $('#upload'), keys: $('#keys') };
+
+function applyRoute() {
+  if ($('#app').hidden) return;
+  const r = route();
+  if (!searched || $('#q').value.trim() !== r.q || sortValue() !== r.sort) {
+    $('#q').value = r.q;
+    const radio = document.querySelector(`[name=sort][value="${r.sort}"]`) || document.querySelector('[name=sort][value=used]');
+    radio.checked = true;
+    search();
+  }
+  if (r.item) loadItem(r.item);
+  else if ($('#item').open) $('#item').close();
+  for (const [view, d] of Object.entries(dialogs)) {
+    if (!r.item && r.view === view) {
+      if (!d.open) {
+        if (view === 'keys') { $('#new-key').hidden = true; loadKeys(); }
+        d.showModal();
+      }
+    } else if (d.open) d.close();
+  }
+}
+
+addEventListener('popstate', applyRoute);
+
 // ---------- boot ----------
 
 for (const b of document.querySelectorAll('dialog .close')) b.onclick = () => b.closest('dialog').close();
@@ -421,7 +490,11 @@ for (const d of document.querySelectorAll('dialog')) {
     if (e.target === d && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) d.close();
   };
 }
-$('#item').addEventListener('close', () => $('#item-media').replaceChildren());
+$('#item').addEventListener('close', () => { $('#item-media').replaceChildren(); current = null; });
+for (const d of [$('#item'), ...Object.values(dialogs)]) d.addEventListener('close', () => {
+  const r = route();
+  if ((d === $('#item') && r.item) || (d !== $('#item') && r.view && dialogs[r.view] === d)) closeOverlay();
+});
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
