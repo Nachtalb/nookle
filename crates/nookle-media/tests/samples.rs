@@ -140,6 +140,42 @@ async fn samples() {
         2,
         "black frame skipped"
     );
+    // stills skip a black first frame: 3 s in here, halfway in clips under 3 s
+    let probe_png = out.join("still.png");
+    let bright = |png: Vec<u8>| {
+        std::fs::write(&probe_png, png).unwrap();
+        let img = std::process::Command::new("ffmpeg")
+            .args(["-v", "error", "-i"])
+            .arg(&probe_png)
+            .args(["-vf", "scale=8:8,format=gray", "-f", "rawvideo", "-"])
+            .output()
+            .unwrap()
+            .stdout;
+        img.iter().map(|&v| v as u32).sum::<u32>() / img.len().max(1) as u32
+    };
+    assert!(
+        bright(frame_png(&s.path).await.unwrap()) > 30,
+        "frame after the fade"
+    );
+    let th = out.join("intro_thumb.webp");
+    thumbnail(&s.path, &th).await.unwrap();
+    assert!(
+        bright(std::fs::read(&th).unwrap()) > 30,
+        "thumb after the fade"
+    );
+    let short = out.join("short_intro.mp4");
+    assert!(std::process::Command::new("ffmpeg")
+        .args(["-v", "error", "-f", "lavfi", "-i"])
+        .arg("color=c=black:s=320x240:r=10:d=0.5[b];testsrc=s=320x240:r=10:d=1.5[t];[b][t]concat=n=2:v=1")
+        .args(["-c:v", "libx264"])
+        .arg(&short)
+        .status()
+        .unwrap()
+        .success());
+    assert!(
+        bright(frame_png(&short).await.unwrap()) > 30,
+        "halfway in a 2 s clip"
+    );
 
     for (name, want) in [
         ("dance.gif", Some("h264")),

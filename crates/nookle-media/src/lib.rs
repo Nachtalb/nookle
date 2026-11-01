@@ -268,14 +268,56 @@ pub async fn normalize(input: &Path, out_dir: &Path, id: &str) -> Result<Stored>
     })
 }
 
+/// Where to take a still from: the start, unless the first frame is black (a fade-in), then 3 s
+/// in, or halfway through clips shorter than 3 s. Returns a seek time, or for animated WebP
+/// (which can't seek) a frame index.
+async fn still_at(path: &Path) -> (Option<u64>, Option<u64>) {
+    let Ok(p) = probe(path).await else {
+        return (None, None);
+    };
+    let Some(d) = p.duration_ms.filter(|d| *d > 0 && p.kind != Kind::Image) else {
+        return (None, None);
+    };
+    let Ok(px) = gray32(path, None, None).await else {
+        return (None, None);
+    };
+    let max = px.iter().copied().max().unwrap_or(0);
+    let mean = px.iter().map(|&v| v as u32).sum::<u32>() / px.len().max(1) as u32;
+    if mean >= 16 || max >= 40 {
+        return (None, None);
+    }
+    let ms = if d > 3000 { 3000 } else { d / 2 };
+    if p.kind == Kind::Gif {
+        let starts = packets(path).await.unwrap_or_default();
+        let n = starts.partition_point(|&(t, _)| t * 1000.0 <= ms as f64 + 5.0);
+        return (None, Some(n.saturating_sub(1) as u64));
+    }
+    (Some(ms), None)
+}
+
+fn seek(c: &mut Command, at_ms: Option<u64>) {
+    if let Some(ms) = at_ms {
+        c.args(["-ss", &format!("{}.{:03}", ms / 1000, ms % 1000)]);
+    }
+}
+
+fn select(frame: Option<u64>) -> String {
+    frame
+        .map(|n| format!("select='eq(n,{n})',"))
+        .unwrap_or_default()
+}
+
 pub async fn thumbnail(stored: &Path, out: &Path) -> Result<()> {
     let mut c = ffmpeg();
+    let (ms, frame) = still_at(stored).await;
+    seek(&mut c, ms);
     c.arg("-i").arg(stored);
+    let vf = format!("{}scale='min(320,iw)':-1", select(frame));
     c.args([
         "-frames:v",
         "1",
         "-vf",
-        "scale='min(320,iw)':-1",
+        &vf,
         "-c:v",
         "libwebp",
         "-quality",
@@ -287,12 +329,15 @@ pub async fn thumbnail(stored: &Path, out: &Path) -> Result<()> {
 
 pub async fn frame_png(stored: &Path) -> Result<Vec<u8>> {
     let mut c = ffmpeg();
+    let (ms, frame) = still_at(stored).await;
+    seek(&mut c, ms);
     c.arg("-i").arg(stored);
+    let vf = format!("{}{FLATTEN}", select(frame));
     c.args([
         "-frames:v",
         "1",
         "-vf",
-        FLATTEN,
+        &vf,
         "-c:v",
         "png",
         "-f",
@@ -379,10 +424,10 @@ async fn gray32(path: &Path, at_ms: Option<u64>, frame: Option<u64>) -> Result<V
         c.args(["-ss", &format!("{}.{:03}", ms / 1000, ms % 1000)]);
     }
     c.arg("-i").arg(path);
-    let select = frame
-        .map(|n| format!("select='eq(n,{n})',"))
-        .unwrap_or_default();
-    let vf = format!("{select}{FLATTEN},scale=32:32:flags=area,format=gray");
+    let vf = format!(
+        "{}{FLATTEN},scale=32:32:flags=area,format=gray",
+        select(frame)
+    );
     c.args(["-frames:v", "1", "-vf", &vf, "-f", "rawvideo", "-"]);
     let px = run(c).await?;
     if px.len() != 1024 {
