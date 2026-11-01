@@ -89,7 +89,7 @@ GET    /api/tags?q=&limit=                  ro  -> 200 {"tags": [{"tag", "count"
 
 - `sort`: `used` (default: hits desc, then last use, then added), `recent`
   (last used desc, never-used last), `added` (newest first).
-- `limit`: 1–200, default 50. `cursor`: opaque, from `next_cursor` (`null` = end).
+- `limit`: 1–200, default 50. `cursor`: opaque, at most 64 bytes (fits Telegram's inline `next_offset`), from `next_cursor` (`null` = end).
 - `query` echoes how `q` was understood, so UIs can show it as chips:
 
 ```json
@@ -163,8 +163,9 @@ move the files. `POST /api/items/import`:
 ]}
 ```
 
-`422 unsupported_url` for anything else; `502 upstream` when fxtwitter or the
-download fails.
+`422 unsupported_url` for anything else and for URLs that resolve to private
+addresses; `413 too_large` when a file exceeds the upload limit; `502 upstream`
+when fxtwitter or the download fails.
 
 ### Edit
 
@@ -187,7 +188,7 @@ POST /api/items/{id}/analysis                rw -> 200 Item
 ```
 
 Claim leases the oldest `pending` ready item for 5 minutes. `frame_url` is a
-still image (the first frame for gif/video, the image itself otherwise).
+public (no auth) PNG of the first frame, transparency flattened onto white.
 Report back with:
 
 ```json
