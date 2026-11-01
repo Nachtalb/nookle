@@ -145,6 +145,38 @@ async function loadMore() {
   if (cursor && isVisible($('#sentinel'))) loadMore();
 }
 
+// Brings the loaded part of the gallery up to date with the server: changed items get a new card,
+// new ones are inserted, ones that no longer match drop out, and the order follows the sort. Cards
+// that did not change stay as they are (no image reload, no flicker). Runs when the item view
+// closes, when the tab comes back, and every 15 s; never while a dialog is open, so stepping
+// through items keeps its order.
+async function refreshGrid() {
+  if (!searched || loading || document.hidden || document.querySelector('dialog[open]')) return;
+  const loaded = cards.size;
+  const p = new URLSearchParams({ q: $('#q').value.trim(), sort: sortValue(), limit: Math.min(200, Math.max(40, loaded)) });
+  const my = gen;
+  let r;
+  try { r = await api('/items?' + p); } catch { return; }
+  if (my !== gen || loading || document.querySelector('dialog[open]')) return;
+  const whole = loaded <= 200; // the answer covers every loaded card
+  for (const [id, h] of Object.entries(r.highlights || {})) highlights.set(id, h);
+  const grid = $('#grid'), seen = new Set();
+  r.items.forEach((it, i) => {
+    seen.add(it.id);
+    let c = cards.get(it.id);
+    if (!c) c = card(it);
+    else if (JSON.stringify(c._item) !== JSON.stringify(it)) { const n = card(it); c.replaceWith(n); c = n; }
+    if (grid.children[i] !== c) grid.insertBefore(c, grid.children[i] || null);
+  });
+  if (whole) {
+    for (const [id, c] of [...cards]) if (!seen.has(id)) { c.remove(); cards.delete(id); }
+    cursor = r.next_cursor;
+  }
+  $('#grid-status').textContent = cards.size ? '' : 'Nothing found';
+}
+setInterval(refreshGrid, 15000);
+document.addEventListener('visibilitychange', refreshGrid);
+
 const sortValue = () => document.querySelector('[name=sort]:checked').value;
 
 const isVisible = (e) => e.getBoundingClientRect().top < innerHeight + 600;
@@ -316,14 +348,9 @@ function markedText(text, pieces) {
   return p;
 }
 
-// Set when an item is edited from search results: on closing it the search runs again, so items
-// that no longer match (a removed tag was the hit) drop out.
-let staleResults = false;
-
 async function saveTags(id, tags) {
   try {
     const it = await api('/items/' + id, { method: 'PATCH', json: { tags } });
-    staleResults = true;
     cards.get(it.id)?.replaceWith(card(it));
     if (current?.id === it.id) { current = it; showReviewed(it); return it.tags; }
   } catch (err) {
@@ -576,7 +603,6 @@ $('#edit-form').onsubmit = async (e) => {
     });
     showItem(it);
     cards.get(it.id)?.replaceWith(card(it));
-    staleResults = true;
     toast('Saved');
     leaveEdit();
   } catch (err) {
@@ -641,7 +667,6 @@ $('#item-reviewed').onclick = async () => {
   const it = current;
   try {
     const next = await api('/items/' + it.id, { method: 'PATCH', json: { reviewed: !it.reviewed_at } });
-    staleResults = true;
     cards.get(next.id)?.replaceWith(card(next));
     if (current?.id === next.id) { current = next; showReviewed(next); }
   } catch (err) {
@@ -957,11 +982,7 @@ for (const d of document.querySelectorAll('dialog')) {
 $('#item').addEventListener('close', () => {
   $('#item-media').replaceChildren();
   current = null;
-  if (staleResults) {
-    staleResults = false;
-    // after the close handler below has dropped ?item= from the URL
-    if (route().q) queueMicrotask(search);
-  }
+  refreshGrid();
 });
 for (const d of [$('#item'), ...Object.values(dialogs)]) d.addEventListener('close', () => {
   const r = route();
