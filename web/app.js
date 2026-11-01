@@ -322,11 +322,54 @@ async function copy(text) {
   }
 }
 
+function used(it) {
+  api(`/items/${it.id}/hit`, { method: 'POST' }).then(() => { it.hits++; it.last_used_at = new Date().toISOString(); if (current?.id === it.id) showItem(it); }).catch(() => {});
+}
+
 $('#item-copy').onclick = async () => {
   const it = current;
   await copy(it.url);
   toast('Link copied');
-  api(`/items/${it.id}/hit`, { method: 'POST' }).then(() => { it.hits++; it.last_used_at = new Date().toISOString(); showItem(it); }).catch(() => {});
+  used(it);
+};
+
+// The share sheet needs a recent tap; a slow download can outlive it, so the file is kept
+// and a second tap shares it at once.
+const shareFiles = new Map();
+$('#item-share-file').onclick = async () => {
+  const it = current;
+  try {
+    let file = shareFiles.get(it.id);
+    if (!file) {
+      toast('Preparing…');
+      const blob = await (await fetch(it.url)).blob();
+      file = new File([blob], it.url.split('/').pop(), { type: it.mime });
+      shareFiles.set(it.id, file);
+    }
+    if (!navigator.canShare?.({ files: [file] })) {
+      const a = el('a', { href: URL.createObjectURL(file), download: file.name });
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      toast('Sharing files is not supported here, downloaded instead');
+    } else {
+      await navigator.share({ files: [file] });
+    }
+    used(it);
+  } catch (err) {
+    if (err.name === 'NotAllowedError') toast('Ready, tap again to share');
+    else if (err.name !== 'AbortError') toast(err.message);
+  }
+};
+
+$('#item-share-link').onclick = async () => {
+  const it = current;
+  try {
+    if (navigator.share) await navigator.share({ url: it.url });
+    else { await copy(it.url); toast('Link copied'); }
+    used(it);
+  } catch (err) {
+    if (err.name !== 'AbortError') toast(err.message);
+  }
 };
 
 $('#item-edit').onclick = () => {

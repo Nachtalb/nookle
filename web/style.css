@@ -132,3 +132,4 @@ h3 { margin: 1.2em 0 .4em; }
 .step.prev { left: .4em; }
 .step.next { right: .4em; }
 .step[hidden] { display: none; }
+.actions .icon { display: inline-flex; align-items: center; justify-content: center; padding: .45em .6em; }
