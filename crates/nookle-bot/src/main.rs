@@ -259,21 +259,30 @@ async fn retag(
     api: &Api,
 ) -> ResponseResult<()> {
     let ids = text::item_ids(to.text().unwrap_or_default());
-    let (add, remove) = text::parse_tag_reply(words);
+    // The items' current tags let `-rock lee` remove a multi-word tag without quotes.
+    let mut items = Vec::new();
+    for id in &ids {
+        items.push((id, api.item(id).await));
+    }
+    let existing: Vec<String> = items
+        .iter()
+        .filter_map(|(_, r)| r.as_ref().ok())
+        .flat_map(|it| it.tags.iter().cloned())
+        .collect();
+    let (add, remove) = text::parse_tag_reply(words, &existing);
     if ids.is_empty() || (add.is_empty() && remove.is_empty()) {
         return reply(
             bot,
             msg,
-            "Reply to a confirmation with tags to add, -tag to remove.",
+            "Reply to a confirmation with tags to add, -tag to remove. Commas or \"quotes\" for tags with spaces.",
         )
         .await;
     }
     let mut out = Vec::new();
     let mut last = None;
-    for id in &ids {
+    for (id, item) in items {
         let res = async {
-            let item = api.item(id).await?;
-            let tags: Vec<String> = item
+            let tags: Vec<String> = item?
                 .tags
                 .into_iter()
                 .filter(|t| !remove.contains(t))

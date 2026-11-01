@@ -25,27 +25,106 @@ pub fn parse_caption(text: &str) -> (Vec<String>, Vec<String>) {
 }
 
 /// Tags to add and remove from a reply like `😏 smug, #cat -dog`. Emoji runs are
-/// split into single emoji so each one is searchable on its own.
-pub fn parse_tag_reply(text: &str) -> (Vec<String>, Vec<String>) {
+/// split into single emoji so each one is searchable on its own. Multi-word tags:
+/// - commas separate tags, so `rock lee, -sad cat` adds `rock lee` and removes `sad cat`;
+/// - quotes group words: `"rock lee" -"sad cat"`;
+/// - `-rock lee` removes `rock lee` when that is one of `existing`, the item's tags.
+pub fn parse_tag_reply(text: &str, existing: &[String]) -> (Vec<String>, Vec<String>) {
     let (mut add, mut remove) = (Vec::new(), Vec::new());
-    for word in text.split(|c: char| c.is_whitespace() || c == ',') {
-        let (list, word) = match word.strip_prefix('-') {
-            Some(w) => (&mut remove, w),
-            None => (&mut add, word),
-        };
-        let word = word.trim_start_matches('#');
-        if word.is_empty() {
-            continue;
+    let mut push = |neg: bool, words: &[&str]| {
+        let list = if neg { &mut remove } else { &mut add };
+        let mut plain = Vec::new();
+        let mut tags = Vec::new();
+        for w in words {
+            let w = w.trim_start_matches('#');
+            match nookle_core::query::split_emoji(w) {
+                Some(e) => tags.extend(e),
+                None if !w.is_empty() => plain.push(w.to_lowercase()),
+                None => {}
+            }
         }
-        let tags =
-            nookle_core::query::split_emoji(word).unwrap_or_else(|| vec![word.to_lowercase()]);
+        if !plain.is_empty() {
+            tags.insert(0, plain.join(" "));
+        }
         for tag in tags {
             if !list.contains(&tag) {
                 list.push(tag);
             }
         }
+    };
+    let pieces: Vec<&str> = if text.contains(',') {
+        text.split(',').collect()
+    } else {
+        vec![text]
+    };
+    let comma = pieces.len() > 1;
+    for piece in pieces {
+        let words = quoted_words(piece);
+        let mut i = 0;
+        while i < words.len() {
+            let (neg, first) = match words[i].strip_prefix('-') {
+                Some(w) => (true, w),
+                None => (false, words[i].as_str()),
+            };
+            if first.contains(' ') || nookle_core::query::split_emoji(first).is_some() {
+                // a quoted group is one tag, an emoji run is its own tags
+                push(neg, &first.split(' ').collect::<Vec<_>>());
+                i += 1;
+                continue;
+            }
+            let mut n = 1;
+            if comma {
+                // the rest of a comma piece belongs to this tag, up to a -tag, #tag or emoji
+                while i + n < words.len()
+                    && !words[i + n].starts_with(['-', '#'])
+                    && nookle_core::query::split_emoji(&words[i + n]).is_none()
+                {
+                    n += 1;
+                }
+            } else if neg {
+                // longest run of following words that names an existing tag
+                for k in (2..=words.len() - i).rev() {
+                    let cand = std::iter::once(first)
+                        .chain(words[i + 1..i + k].iter().map(String::as_str))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                        .to_lowercase();
+                    if existing.contains(&cand) {
+                        n = k;
+                        break;
+                    }
+                }
+            }
+            let group: Vec<&str> = std::iter::once(first)
+                .chain(words[i + 1..i + n].iter().map(String::as_str))
+                .collect();
+            push(neg, &group);
+            i += n;
+        }
     }
     (add, remove)
+}
+
+/// Whitespace-separated words; `"a b"` and `-"a b"` stay one word (with the space).
+fn quoted_words(text: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut quoted = false;
+    for c in text.chars() {
+        match c {
+            '"' | '“' | '”' => quoted = !quoted,
+            c if c.is_whitespace() && !quoted => {
+                if !cur.is_empty() {
+                    out.push(std::mem::take(&mut cur));
+                }
+            }
+            c => cur.push(c),
+        }
+    }
+    if !cur.trim().is_empty() {
+        out.push(cur.trim().to_string());
+    }
+    out
 }
 
 /// Item ids from the page links in one of our own messages, in order.
@@ -191,7 +270,7 @@ mod tests {
     #[test]
     fn tag_replies() {
         assert_eq!(
-            parse_tag_reply("😏 Smug, #cat -dog 😂🔥 -"),
+            parse_tag_reply("😏 Smug, #cat -dog 😂🔥 -", &[]),
             (
                 vec![
                     "😏".into(),
@@ -203,7 +282,26 @@ mod tests {
                 vec!["dog".to_string()]
             )
         );
-        assert_eq!(parse_tag_reply("  "), (vec![], vec![]));
+        assert_eq!(parse_tag_reply("  ", &[]), (vec![], vec![]));
+        let existing = ["rock lee".to_string(), "sad cat".to_string()];
+        let v = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(
+            parse_tag_reply("-rock lee", &existing),
+            (v(&[]), v(&["rock lee"]))
+        );
+        assert_eq!(
+            parse_tag_reply("-rock lee naruto", &existing),
+            (v(&["naruto"]), v(&["rock lee"]))
+        );
+        assert_eq!(parse_tag_reply("-rock", &existing), (v(&[]), v(&["rock"])));
+        assert_eq!(
+            parse_tag_reply("-\"Rock Lee\" \"might guy\" 😏", &[]),
+            (v(&["might guy", "😏"]), v(&["rock lee"]))
+        );
+        assert_eq!(
+            parse_tag_reply("might guy, -sad cat, 😭", &[]),
+            (v(&["might guy", "😭"]), v(&["sad cat"]))
+        );
         assert_eq!(
             item_ids(
                 "✅ https://n.naa.gg/abcd1234\nKind: image\n2. ♻️ https://n.naa.gg/XyZ98765 https://n.naa.gg/abcd1234 https://x.com/a/status/1"
