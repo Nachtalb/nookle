@@ -313,9 +313,14 @@ function markedText(text, pieces) {
   return p;
 }
 
+// Set when an item is edited from search results: on closing it the search runs again, so items
+// that no longer match (a removed tag was the hit) drop out.
+let staleResults = false;
+
 async function saveTags(id, tags) {
   try {
     const it = await api('/items/' + id, { method: 'PATCH', json: { tags } });
+    staleResults = true;
     cards.get(it.id)?.replaceWith(card(it));
     if (current?.id === it.id) { current = it; return it.tags; }
   } catch (err) {
@@ -511,6 +516,7 @@ $('#edit-form').onsubmit = async (e) => {
     });
     showItem(it);
     cards.get(it.id)?.replaceWith(card(it));
+    staleResults = true;
     toast('Saved');
     leaveEdit();
   } catch (err) {
@@ -866,7 +872,15 @@ for (const d of document.querySelectorAll('dialog')) {
     if (e.target === d && (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom)) d.close();
   };
 }
-$('#item').addEventListener('close', () => { $('#item-media').replaceChildren(); current = null; });
+$('#item').addEventListener('close', () => {
+  $('#item-media').replaceChildren();
+  current = null;
+  if (staleResults) {
+    staleResults = false;
+    // after the close handler below has dropped ?item= from the URL
+    if (route().q) queueMicrotask(search);
+  }
+});
 for (const d of [$('#item'), ...Object.values(dialogs)]) d.addEventListener('close', () => {
   const r = route();
   if ((d === $('#item') && r.item) || (d !== $('#item') && r.view && dialogs[r.view] === d)) closeOverlay();
