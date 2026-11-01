@@ -6,6 +6,7 @@ integration tests before the Rust core exists. It implements `docs/API.md`.
 ```sh
 python3 mock/server.py                 # http://127.0.0.1:8787
 python3 mock/server.py --port 0        # random port
+python3 mock/server.py --web web       # also serve the PWA from web/
 python3 -m unittest mock/test_mock.py  # contract self-check
 ```
 

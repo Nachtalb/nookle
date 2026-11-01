@@ -384,6 +384,8 @@ def route(method, pattern, scope=None):
     return deco
 
 
+WEB_TYPES = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml",
+             ".png": "image/png", ".webmanifest": "application/manifest+json", ".json": "application/json"}
 SCOPE_RANK = {"ro": 1, "rw": 2, "admin": 3}
 
 
@@ -391,6 +393,7 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = "nookle-mock"
     store: Store = None
+    web = None
 
     def log_message(self, fmt, *args):
         if os.environ.get("MOCK_QUIET") != "1":
@@ -457,6 +460,10 @@ class Handler(BaseHTTPRequestHandler):
                         return fn(self, *m.groups())
                 except ApiError as e:
                     return self._send(e.status, {"error": e.code, "message": e.message, **e.extra})
+        if self.web and self.command in ("GET", "HEAD"):
+            f = os.path.realpath(os.path.join(self.web, path.lstrip("/") or "index.html"))
+            if f.startswith(self.web + os.sep) and os.path.isfile(f):
+                return self._send(200, open(f, "rb").read(), WEB_TYPES.get(os.path.splitext(f)[1], "application/octet-stream"))
         if any(rx.match(path) for _, rx, _, _ in ROUTES):
             return self._send(405, {"error": "bad_request", "message": "method not allowed"})
         self._send(404, {"error": "not_found", "message": "no such route"})
@@ -773,7 +780,9 @@ if __name__ == "__main__":
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--base-url", help="public URL used in item urls (default http://host:port)")
+    ap.add_argument("--web", help="serve static files from this dir for unmatched GETs")
     a = ap.parse_args()
+    Handler.web = a.web and os.path.realpath(a.web)
     s = make_server(a.host, a.port, a.base_url)
     print(f"nookle mock on {Handler.store.base_url}  password={PASSWORD!r}  keys: "
           + ", ".join(f"{sc}={k}" for _, sc, k in SEED_KEYS) + ("" if HAVE_FFMPEG else "  (no ffmpeg: no near-dup/probe)"))
