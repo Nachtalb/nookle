@@ -1,4 +1,5 @@
-import { chips, parseTags, parseLines, fmtSize, fmtDuration, fmtDate } from './lib.js';
+import { chips, parseTags, parseLines, fmtSize, fmtDuration, fmtDate, rankSuggestions } from './lib.js';
+import { emojify, emojiNames } from './emoji.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, props = {}, ...kids) => {
@@ -102,7 +103,7 @@ async function loadMore() {
   if (my !== gen) return loadMore();
   if (error) return ($('#grid-status').textContent = error.message);
   cursor = r.next_cursor;
-  $('#chips').replaceChildren(...chips(r.query).map((c) => el('span', { className: 'chip ' + c.type, textContent: c.label })));
+  $('#chips').replaceChildren(...chips(r.query).map((c) => emojify(el('span', { className: 'chip ' + c.type }), c.label)));
   for (const it of r.items) $('#grid').append(card(it));
   $('#grid-status').textContent = cards.size ? '' : 'Nothing found';
   if (cursor && isVisible($('#sentinel'))) loadMore();
@@ -231,7 +232,7 @@ function showItem(it) {
     el('div', {}, el('a', { href: s.url, target: '_blank', rel: 'noopener', textContent: s.author ? `${s.site}: @${s.author}` : s.url })))) : null;
   $('#item-info').replaceChildren(
     tags,
-    it.text ? el('p', { className: 'text', textContent: it.text }) : '',
+    it.text ? emojify(el('p', { className: 'text' }), it.text) : '',
     el('dl', {},
       ...row('Kind', [it.kind, it.width && `${it.width}×${it.height}`, fmtDuration(it.duration_ms), it.has_audio ? 'sound' : '', fmtSize(it.size)].filter(Boolean).join(' · ')),
       ...row('Style', it.style || '—'),
@@ -253,13 +254,18 @@ async function saveTags(id, tags) {
   }
 }
 
-// Chips with ✕ to remove and an input to add (Enter or comma), suggesting known tags.
+// Chips with ✕ to remove and an input to add (Enter, comma or the ➤ button inside the field,
+// which saves switching to the letter keyboard after typing emoji). An autocomplete list offers
+// known tags and emoji by name; picking an entry adds it at once.
 // onChange(tags) may return the saved list to show; without it the editor is read-only.
 function tagEditor(initial, { onClick, onChange }) {
   let tags = [...initial];
   const box = el('div', { className: 'chips tag-editor' });
   const input = el('input', { className: 'tag-input', placeholder: 'add tag…', enterKeyHint: 'done', autocomplete: 'off' });
-  input.setAttribute('list', 'tag-suggest');
+  const submit = el('button', { type: 'button', className: 'tag-submit', title: 'Add', textContent: '➤' });
+  const list = el('ul', { className: 'suggest', hidden: true });
+  const field = el('span', { className: 'tag-add' }, input, submit, list);
+  let options = [], active = -1;
   const set = async (next) => {
     tags = next;
     render();
@@ -268,12 +274,45 @@ function tagEditor(initial, { onClick, onChange }) {
   };
   const add = (raw) => {
     const fresh = parseTags(raw).filter((t) => !tags.includes(t));
+    input.value = '';
+    close();
     if (fresh.length) set([...tags, ...fresh]);
+    input.focus();
+  };
+  const close = () => { list.hidden = true; options = []; active = -1; };
+  const show = (opts) => {
+    options = opts;
+    active = -1;
+    list.replaceChildren(...opts.map((o, i) => {
+      const li = el('li', {}, emojify(el('span', { className: 'label' }), o.label), el('span', { className: 'hint', textContent: o.hint }));
+      // pointerdown keeps the focus (and the phone keyboard) in the input
+      li.addEventListener('pointerdown', (e) => e.preventDefault());
+      li.onclick = () => add(o.value);
+      li.onmouseenter = () => mark(i);
+      return li;
+    }));
+    list.hidden = !opts.length;
+  };
+  const mark = (i) => {
+    active = i;
+    [...list.children].forEach((li, j) => li.classList.toggle('active', j === i));
+  };
+  let timer, seq = 0;
+  const lookup = () => {
+    clearTimeout(timer);
+    const q = input.value;
+    if (!q.trim()) return close();
+    const mine = ++seq;
+    timer = setTimeout(async () => {
+      const r = await api('/tags?' + new URLSearchParams({ q: q.trim().toLowerCase(), limit: 8 })).catch(() => ({ tags: [] }));
+      if (mine !== seq) return;
+      show(rankSuggestions(q, r.tags.filter((t) => !tags.includes(t.tag)), emojiNames));
+    }, 120);
   };
   function render() {
     box.replaceChildren(...tags.map((t) => {
       const chip = el('span', { className: 'chip term' });
-      const label = el('button', { type: 'button', className: 'chip-label', textContent: t });
+      const label = emojify(el('button', { type: 'button', className: 'chip-label', title: t }), t);
       if (onClick) label.onclick = () => onClick(t);
       chip.append(label);
       if (onChange) {
@@ -282,32 +321,27 @@ function tagEditor(initial, { onClick, onChange }) {
         chip.append(x);
       }
       return chip;
-    }), onChange ? input : '');
+    }), onChange ? field : '');
   }
   if (onChange) {
+    submit.addEventListener('pointerdown', (e) => e.preventDefault());
+    submit.onclick = () => (active >= 0 ? add(options[active].value) : add(input.value));
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); add(input.value); input.value = ''; }
+      if (e.key === 'ArrowDown' && options.length) { e.preventDefault(); mark((active + 1) % options.length); }
+      else if (e.key === 'ArrowUp' && options.length) { e.preventDefault(); mark((active - 1 + options.length) % options.length); }
+      else if (e.key === 'Escape' && !list.hidden) { e.preventDefault(); e.stopPropagation(); close(); }
+      else if (e.key === 'Enter') { e.preventDefault(); active >= 0 ? add(options[active].value) : add(input.value); }
       else if (e.key === 'Backspace' && !input.value && tags.length) set(tags.slice(0, -1));
     });
     input.addEventListener('input', () => {
-      if (input.value.includes(',')) { add(input.value); input.value = ''; return; }
-      suggest(input.value);
+      if (input.value.includes(',')) return add(input.value);
+      lookup();
     });
-    input.addEventListener('change', () => { if (input.value.trim()) { add(input.value); input.value = ''; } });
+    input.addEventListener('blur', () => setTimeout(close, 150));
   }
   render();
   box.tags = () => tags;
   return box;
-}
-
-let suggestTimer;
-function suggest(prefix) {
-  clearTimeout(suggestTimer);
-  if (!prefix.trim()) return;
-  suggestTimer = setTimeout(async () => {
-    const r = await api('/tags?' + new URLSearchParams({ q: prefix.trim(), limit: 8 })).catch(() => null);
-    if (r) $('#tag-suggest').replaceChildren(...r.tags.map((t) => el('option', { value: t.tag })));
-  }, 150);
 }
 
 async function copy(text) {

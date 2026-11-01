@@ -40,3 +40,27 @@ export function fmtDuration(ms) {
 export function fmtDate(iso) {
   return iso ? new Date(iso).toLocaleString() : 'never';
 }
+
+/**
+ * Autocomplete entries for a tag being typed: up to limit-3 known tags (by use), then emoji whose short
+ * name starts with, then contains, the text (`:smi` or `smi` -> 😏 smirk). `value` is what gets added.
+ */
+export function rankSuggestions(input, tags, emoji, limit = 8) {
+  const q = input.trim().toLowerCase().replace(/^:/, '').replace(/:$/, '');
+  if (!q) return [];
+  const out = tags.slice(0, Math.max(1, limit - 3)).map((t) => ({ value: t.tag, label: t.tag, hint: String(t.count) }));
+  const seen = new Set(out.map((o) => o.value));
+  const starts = [], within = [];
+  for (const e of emoji) {
+    const words = e.name.replace(/_/g, ' ');
+    if (e.name.startsWith(q) || words.startsWith(q)) starts.push(e);
+    else if (e.name.includes(q)) within.push(e);
+  }
+  for (const e of [...starts.sort((a, b) => a.name.length - b.name.length), ...within]) {
+    if (out.length >= limit) break;
+    if (seen.has(e.char)) continue;
+    seen.add(e.char);
+    out.push({ value: e.char, label: e.char, hint: ':' + e.name + ':' });
+  }
+  return out.slice(0, limit);
+}

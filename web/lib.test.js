@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chips, parseTags, parseLines, fmtSize, fmtDuration } from './lib.js';
+import { chips, parseTags, parseLines, fmtSize, fmtDuration, rankSuggestions } from './lib.js';
 
 test('chips', () => {
   const q = {
@@ -20,4 +20,14 @@ test('parsers and formatters', () => {
   assert.equal(fmtSize(11700), '11.4 KB');
   assert.equal(fmtDuration(65000), '1:05');
   assert.equal(fmtDuration(null), '');
+});
+
+test('rankSuggestions', () => {
+  const emoji = [{ name: 'smiley', char: '😃' }, { name: 'smirk', char: '😏' }, { name: 'cat_smirk', char: '😼' }, { name: 'sob', char: '😭' }];
+  const tags = [{ tag: 'smug', count: 3 }];
+  const r = rankSuggestions(':smi', tags, emoji);
+  assert.deepEqual(r.map((o) => o.value), ['smug', '😏', '😃', '😼']);
+  assert.equal(r[1].hint, ':smirk:');
+  assert.deepEqual(rankSuggestions('  ', tags, emoji), []);
+  assert.equal(rankSuggestions('s', [], emoji, 2).length, 2);
 });

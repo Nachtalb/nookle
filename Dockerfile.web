@@ -1,5 +1,11 @@
 # Static PWA + userscript.
+FROM alpine:3.22 AS emoji
+RUN apk add --no-cache curl
+COPY scripts/fetch-emoji.sh /fetch-emoji.sh
+RUN /fetch-emoji.sh /out
+
 FROM ghcr.io/static-web-server/static-web-server:2
 COPY web/ /public/
+COPY --from=emoji /out/emoji/ /public/emoji/
 COPY userscript/nookle.user.js /public/nookle.user.js
 ENV SERVER_PORT=8080 SERVER_ROOT=/public SERVER_CACHE_CONTROL_HEADERS=false

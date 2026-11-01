@@ -104,7 +104,17 @@ dd { margin: 0; word-break: break-word; }
 .chip-label, .chip-x { border: 0; background: none; padding: .3em .2em .3em .7em; border-radius: 99px; }
 .chip-x { padding: .3em .6em .3em .35em; color: var(--muted); }
 .chip-x:hover { color: var(--danger); }
-.tag-input { width: auto; flex: 1 1 8em; min-width: 8em; padding: .3em .6em; border-radius: 99px; font-size: .9em; }
+.tag-add { position: relative; flex: 1 1 10em; min-width: 10em; display: flex; }
+.tag-input { width: 100%; padding: .3em 2.2em .3em .6em; border-radius: 99px; font-size: .9em; }
+.tag-submit { position: absolute; right: .15em; top: 50%; transform: translateY(-50%); width: 1.9em; height: 1.9em;
+  padding: 0; border: 0; border-radius: 50%; background: var(--accent); color: #000; font-size: .85em; line-height: 1; }
+.suggest { position: absolute; top: calc(100% + .25em); left: 0; right: 0; z-index: 5; margin: 0; padding: .25em 0;
+  list-style: none; background: var(--panel); border: 1px solid rgba(255,255,255,.15); border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.45); max-height: 16em; overflow-y: auto; }
+.suggest li { display: flex; justify-content: space-between; gap: 1em; padding: .4em .7em; cursor: pointer; }
+.suggest li.active, .suggest li:hover { background: rgba(255,255,255,.1); }
+.suggest .hint { color: var(--muted); font-size: .85em; }
+img.emoji { width: 1.25em; height: 1.25em; vertical-align: -.25em; display: inline-block; }
 .drop {
   display: grid; place-items: center; min-height: 7em; border: 2px dashed var(--line); border-radius: 12px;
   color: var(--muted); cursor: pointer; text-align: center; padding: 1em;
