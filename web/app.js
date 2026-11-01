@@ -267,9 +267,15 @@ async function loadItem(id) {
   }
 }
 
+// Desktop (mouse and keyboard): opening an item puts the cursor in its tag field, so tagging
+// runs as type, Esc, arrow to the next, type. Not on touch, where it would pop up the keyboard.
+const desktop = matchMedia('(hover: hover) and (pointer: fine)');
+
 function showItem(it) {
   updateSteps(it.id);
+  const opened = current?.id !== it.id || !$('#item').open;
   current = it;
+  if (opened && desktop.matches) queueMicrotask(() => $('#item-info .tag-input')?.focus());
   $('#edit-form').hidden = true;
   $('#item-title').textContent = it.id;
   const m = it.status !== 'ready' ? el('p', { className: 'muted', textContent: it.status === 'failed' ? 'Failed: ' + it.error : 'Processing…' })
@@ -400,6 +406,8 @@ function tagEditor(initial, { onClick, onChange, onRemove, hits = [] }) {
       if (e.key === 'ArrowDown' && options.length) { e.preventDefault(); mark((active + 1) % options.length); }
       else if (e.key === 'ArrowUp' && options.length) { e.preventDefault(); mark((active - 1 + options.length) % options.length); }
       else if (e.key === 'Escape' && !list.hidden) { e.preventDefault(); e.stopPropagation(); close(); }
+      // Esc leaves the field first (arrow keys then step through items); a second Esc closes
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); input.blur(); }
       else if (e.key === 'Enter') { e.preventDefault(); active >= 0 ? add(options[active].value) : add(input.value); }
       else if (e.key === 'Backspace' && !input.value && tags.length) set(tags.slice(0, -1));
     });
