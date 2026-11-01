@@ -49,6 +49,39 @@ pub fn emoji_listing() -> String {
     lines.join("\n")
 }
 
+/// Keywords shared by more emoji than this (`flag`: 263) say nothing about one emoji, so 🇺🇸
+/// must not find every flag through them.
+const MAX_KEYWORD_EMOJI: usize = 40;
+
+static KEYWORD_EMOJI: LazyLock<HashMap<&'static str, usize>> = LazyLock::new(|| {
+    let mut n = HashMap::new();
+    for kws in EMOJI.0.values() {
+        for k in kws {
+            *n.entry(k.as_str()).or_default() += 1;
+        }
+    }
+    n
+});
+
+/// The keywords an emoji in a query searches for: its specific ones, or all if none is specific.
+pub fn search_keywords(emoji: &str) -> Vec<String> {
+    let all = emoji_keywords(emoji).unwrap_or_default();
+    let specific: Vec<String> = all
+        .iter()
+        .filter(|k| {
+            KEYWORD_EMOJI
+                .get(k.as_str())
+                .is_none_or(|n| *n <= MAX_KEYWORD_EMOJI)
+        })
+        .cloned()
+        .collect();
+    if specific.is_empty() {
+        all.to_vec()
+    } else {
+        specific
+    }
+}
+
 /// Greedy split of a token made only of known emoji.
 pub fn split_emoji(tok: &str) -> Option<Vec<String>> {
     let chars: Vec<char> = tok.chars().filter(|&c| c != '\u{fe0f}').collect();
@@ -211,7 +244,7 @@ pub fn parse(q: &str, now: DateTime<Utc>) -> ParsedQuery {
             clamp(&mut pq, Some(a), Some(b));
         } else if let Some(ems) = split_emoji(raw) {
             for e in ems {
-                let keywords = emoji_keywords(&e).unwrap_or_default().to_vec();
+                let keywords = search_keywords(&e);
                 pq.emoji.push(EmojiMatch { emoji: e, keywords });
             }
         } else {

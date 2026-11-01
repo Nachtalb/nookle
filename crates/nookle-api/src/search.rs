@@ -48,16 +48,19 @@ pub fn matches(it: &Item, pq: &ParsedQuery, aliases: &Aliases) -> bool {
     if !pq.phrases.iter().all(|p| hay.contains(p.as_str())) {
         return false;
     }
+    // An emoji finds its keywords as whole words in tags and text (🇺🇸: `usa`, and `america`
+    // also as the start of `american flag`, since keywords of 5+ letters match word prefixes).
     pq.emoji.iter().all(|e| {
         it.tags.contains(&e.emoji)
             || e.keywords.iter().any(|w| {
                 let w = w.to_lowercase();
-                it.tags.contains(&w) || has_word(&text, &w)
+                it.tags.iter().any(|t| has_word(t, &w, w.len() >= 5)) || has_word(&text, &w, false)
             })
     })
 }
 
-fn has_word(text: &str, w: &str) -> bool {
+/// `w` as a whole word of `text`, or as the start of a word when `prefix` is set.
+fn has_word(text: &str, w: &str, prefix: bool) -> bool {
     text.match_indices(w).any(|(i, _)| {
         let before = text[..i]
             .chars()
@@ -67,7 +70,7 @@ fn has_word(text: &str, w: &str) -> bool {
             .chars()
             .next()
             .is_none_or(|c| !c.is_alphanumeric());
-        before && after
+        before && (after || prefix)
     })
 }
 
@@ -109,5 +112,26 @@ mod tests {
         assert!(!hit("smu"));
         assert!(!hit("smi"));
         assert!(!hit("dog"));
+    }
+
+    #[test]
+    fn flag_emoji_finds_its_country_not_every_flag() {
+        let item = |tags: &[&str]| -> Item {
+            serde_json::from_value(serde_json::json!({
+                "id": "abcd1234", "kind": "image", "mime": "image/webp",
+                "url": "u", "thumb_url": "t", "page_url": "p", "width": 1, "height": 1,
+                "duration_ms": null, "has_audio": false, "size": 1, "style": null,
+                "tags": tags, "text": "", "sources": [], "hits": 0,
+                "added_at": "2026-10-30T12:00:00Z", "last_used_at": null,
+                "status": "ready", "analysis": "done", "telegram": null
+            }))
+            .unwrap()
+        };
+        let hit =
+            |tags: &[&str], q: &str| matches(&item(tags), &parse(q, Utc::now()), &Aliases::new());
+        assert!(hit(&["american flag", "suit"], "🇺🇸"));
+        assert!(hit(&["usa"], "🇺🇸"));
+        assert!(!hit(&["german flag"], "🇺🇸"));
+        assert!(!hit(&["user"], "🇺🇸"));
     }
 }
