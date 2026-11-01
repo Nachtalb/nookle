@@ -136,6 +136,8 @@ h3 { margin: 1.2em 0 .4em; }
 }
 .toast { background: var(--fg); color: var(--bg); padding: .5em 1em; border-radius: 99px; font-weight: 600;
   max-width: 90vw; text-align: center; animation: toast-in .15s ease-out; }
+.toast.action { pointer-events: auto; cursor: pointer; border: 0; font: inherit; font-weight: 600;
+  background: var(--accent); color: #000; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(.5em); } }
 
 .media-wrap { position: relative; }

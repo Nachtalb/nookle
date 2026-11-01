@@ -29,17 +29,36 @@ async function api(path, opts = {}) {
   return body;
 }
 
-// Toasts stack: each one stays its own 2.5 s; the same message again just restarts its timer.
-function toast(msg) {
+// Toasts stack: each one stays its own time; the same message again just restarts its timer.
+// With onTap the toast is a button (shown longer) that runs onTap and closes.
+function toast(msg, { onTap, ms } = {}) {
   const box = $('#toast');
   let t = [...box.children].find((c) => c.textContent === msg);
   if (!t) {
-    t = el('div', { className: 'toast', textContent: msg });
+    t = onTap
+      ? el('button', { type: 'button', className: 'toast action', textContent: msg })
+      : el('div', { className: 'toast', textContent: msg });
+    if (onTap) t.onclick = () => { t.remove(); onTap(); };
     box.append(t);
     while (box.children.length > 4) box.firstChild.remove();
   }
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.remove(), 2500);
+  t._timer = setTimeout(() => t.remove(), ms ?? (onTap ? 5000 : 2500));
+}
+
+// After removing a tag by hand: offer to block it, which also sweeps it from every item.
+async function offerBlock(tag) {
+  const r = await api('/blocked-tags').catch(() => null);
+  if (!r || r.tags.includes(tag)) return;
+  toast(`🚫 Block “${tag}” everywhere?`, {
+    onTap: async () => {
+      try {
+        await api('/blocked-tags', { method: 'PUT', json: { tags: [...r.tags, tag] } });
+        toast(`Blocked “${tag}”, removed from all items`);
+        search();
+      } catch (err) { toast(err.message); }
+    },
+  });
 }
 
 // ---------- auth ----------
@@ -231,6 +250,7 @@ function showItem(it) {
   const tags = tagEditor(it.tags, {
     onClick: (t) => { nav({ q: t, item: null }, true); applyRoute(); },
     onChange: canWrite() ? (next) => saveTags(it.id, next) : null,
+    onRemove: canWrite() ? offerBlock : null,
   });
   const sources = it.sources.length ? el('div', {}, ...it.sources.map((s) =>
     el('div', {}, el('a', { href: s.url, target: '_blank', rel: 'noopener', textContent: s.author ? `${s.site}: @${s.author}` : s.url })))) : null;
@@ -262,7 +282,7 @@ async function saveTags(id, tags) {
 // which saves switching to the letter keyboard after typing emoji). An autocomplete list offers
 // known tags and emoji by name; picking an entry adds it at once.
 // onChange(tags) may return the saved list to show; without it the editor is read-only.
-function tagEditor(initial, { onClick, onChange }) {
+function tagEditor(initial, { onClick, onChange, onRemove }) {
   let tags = [...initial];
   const box = el('div', { className: 'chips tag-editor' });
   const input = el('input', { className: 'tag-input', placeholder: 'add tag…', enterKeyHint: 'done', autocomplete: 'off' });
@@ -321,7 +341,7 @@ function tagEditor(initial, { onClick, onChange }) {
       chip.append(label);
       if (onChange) {
         const x = el('button', { type: 'button', className: 'chip-x', textContent: '✕', title: 'Remove ' + t });
-        x.onclick = () => set(tags.filter((y) => y !== t));
+        x.onclick = () => { set(tags.filter((y) => y !== t)); onRemove?.(t); };
         chip.append(x);
       }
       return chip;
