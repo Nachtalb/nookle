@@ -31,3 +31,8 @@ export const emojiNames = Object.keys(uni.map.colons)
   .filter((n) => !n.includes('::'))
   .map((name) => ({ name, char: uni.replace_colons(`:${name}:`) }))
   .filter((e) => e.char && !e.char.startsWith(':'));
+
+/** Replaces `:short_name:` codes (`:us:`, `:+1:`) with their emoji; unknown codes stay. */
+export function colonsToEmoji(text) {
+  return text.includes(':') ? uni.replace_colons(text) : text;
+}
