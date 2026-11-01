@@ -132,8 +132,11 @@ img.emoji { width: 1.25em; height: 1.25em; vertical-align: -.25em; display: inli
 h3 { margin: 1.2em 0 .4em; }
 #toast {
   position: fixed; left: 50%; bottom: max(1.5em, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 10;
-  background: var(--fg); color: var(--bg); padding: .5em 1em; border-radius: 99px; font-weight: 600;
+  display: flex; flex-direction: column; align-items: center; gap: .4em; pointer-events: none;
 }
+.toast { background: var(--fg); color: var(--bg); padding: .5em 1em; border-radius: 99px; font-weight: 600;
+  max-width: 90vw; text-align: center; animation: toast-in .15s ease-out; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(.5em); } }
 
 .media-wrap { position: relative; }
 .step { position: absolute; top: 50%; transform: translateY(-50%); width: 2.4em; height: 2.4em; padding: 0;

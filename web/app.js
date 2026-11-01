@@ -29,13 +29,17 @@ async function api(path, opts = {}) {
   return body;
 }
 
-let toastTimer;
+// Toasts stack: each one stays its own 2.5 s; the same message again just restarts its timer.
 function toast(msg) {
-  const t = $('#toast');
-  t.textContent = msg;
-  t.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => (t.hidden = true), 2500);
+  const box = $('#toast');
+  let t = [...box.children].find((c) => c.textContent === msg);
+  if (!t) {
+    t = el('div', { className: 'toast', textContent: msg });
+    box.append(t);
+    while (box.children.length > 4) box.firstChild.remove();
+  }
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.remove(), 2500);
 }
 
 // ---------- auth ----------
