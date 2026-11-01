@@ -321,6 +321,15 @@ $('#edit-form').onsubmit = async (e) => {
   }
 };
 
+$('#item-retag').onclick = async () => {
+  try {
+    showItem(await api('/items/' + current.id + '/reanalyse', { method: 'POST' }));
+    toast('Queued for the tagger');
+  } catch (err) {
+    toast(err.message);
+  }
+};
+
 $('#item-delete').onclick = async () => {
   if (!confirm('Delete this item for good?')) return;
   try {
