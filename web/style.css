@@ -63,16 +63,19 @@ header {
 .card img, .card video { width: 100%; height: 100%; object-fit: cover; display: block; }
 .card video { position: absolute; inset: 0; }
 .card.busy { min-height: 120px; }
-.card.busy img { filter: brightness(.45) saturate(.6); }
-.card.busy::after { content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.14) 50%, transparent 70%);
-  background-size: 250% 100%; animation: sweep 1.6s linear infinite; }
+.card.busy::before { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.55); pointer-events: none; }
+/* The sweep and spinner only move transforms, which the compositor animates without repainting;
+   off-screen cards (.idle) don't animate at all. */
+.card.busy::after { content: ''; position: absolute; top: 0; bottom: 0; left: -60%; width: 60%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,.14), transparent);
+  animation: sweep 1.6s linear infinite; will-change: transform; }
 .busy-veil { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: .5em; color: #fff; font-size: .85em; text-shadow: 0 1px 3px #000; }
 .spinner { width: 2.2em; height: 2.2em; border-radius: 50%; border: 3px solid rgba(255,255,255,.25);
-  border-top-color: var(--accent, #e5a00d); animation: spin .9s linear infinite; }
+  border-top-color: var(--accent, #e5a00d); animation: spin .9s linear infinite; will-change: transform; }
+.card.busy.idle::after, .card.busy.idle .spinner { animation-play-state: paused; }
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes sweep { from { background-position: 125% 0; } to { background-position: -125% 0; } }
+@keyframes sweep { to { transform: translateX(270%); } }
 @media (prefers-reduced-motion: reduce) { .card.busy::after, .spinner { animation: none; } }
 .kind { position: absolute; right: 4px; bottom: 4px; font-size: .7em; padding: .05em .4em; border-radius: 4px; background: #000a; color: #fff; }
 #sentinel { height: 1px; }

@@ -200,19 +200,37 @@ function busyLabel(it) {
 // Busy cards are re-fetched every few seconds and swapped for the finished card.
 const busyIds = new Set();
 let busyTimer = null;
+// Busy cards poll together (only the ones on screen) and pause their animation off screen,
+// so a page full of uploads stays smooth.
+const busyVisible = new Set();
+const busyObserver = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    const id = e.target._item?.id;
+    e.target.classList.toggle('idle', !e.isIntersecting);
+    if (e.isIntersecting) busyVisible.add(id); else busyVisible.delete(id);
+  }
+}, { rootMargin: '200px' });
+
 function watchBusy(id) {
   busyIds.add(id);
+  const c = cards.get(id);
+  if (c) { c.classList.add('idle'); busyObserver.observe(c); }
   busyTimer ??= setInterval(async () => {
     for (const id of [...busyIds]) {
-      const c = cards.get(id);
-      if (!c?.isConnected) { busyIds.delete(id); continue; }
-      const it = await api('/items/' + id).catch(() => null);
-      if (!it || busyLabel(it) === busyLabel(c._item)) continue;
-      busyIds.delete(id);
-      c.replaceWith(card(it));
-      if (current?.id === id) showItem(it);
+      if (!cards.get(id)?.isConnected) { busyIds.delete(id); busyVisible.delete(id); }
     }
-    if (!busyIds.size) { clearInterval(busyTimer); busyTimer = null; }
+    if (!busyIds.size) { clearInterval(busyTimer); busyTimer = null; return; }
+    const ids = [...busyIds].filter((id) => busyVisible.has(id) || current?.id === id);
+    const fresh = await Promise.all(ids.map((id) => api('/items/' + id).catch(() => null)));
+    fresh.forEach((it, i) => {
+      const c = cards.get(ids[i]);
+      if (!it || !c || busyLabel(it) === busyLabel(c._item)) return;
+      busyIds.delete(it.id);
+      busyVisible.delete(it.id);
+      busyObserver.unobserve(c);
+      c.replaceWith(card(it));
+      if (current?.id === it.id) showItem(it);
+    });
   }, 4000);
 }
 
