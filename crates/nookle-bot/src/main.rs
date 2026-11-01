@@ -19,8 +19,8 @@ use teloxide::{
     payloads::{AnswerInlineQuerySetters, EditMessageTextSetters, SendMessageSetters},
     prelude::*,
     types::{
-        FileId, FileMeta, InlineKeyboardButton, InlineKeyboardMarkup, Me, MessageEntityKind,
-        MessageOrigin, ReplyParameters, User,
+        FileId, FileMeta, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Me,
+        MessageEntityKind, MessageOrigin, ReplyParameters, User,
     },
     utils::command::BotCommands,
 };
@@ -181,7 +181,9 @@ async fn start(bot: Bot, msg: Message, me: Me) -> ResponseResult<()> {
          Search in any chat: @{} cat",
         me.username()
     );
-    bot.send_message(msg.chat.id, help).await?;
+    bot.send_message(msg.chat.id, help)
+        .link_preview_options(no_preview())
+        .await?;
     Ok(())
 }
 
@@ -237,6 +239,7 @@ async fn message(
     let status = bot
         .send_message(msg.chat.id, "⏳ Downloading…")
         .reply_parameters(ReplyParameters::new(msg.id))
+        .link_preview_options(no_preview())
         .await?;
     let up = PendingUpload {
         media,
@@ -302,6 +305,7 @@ async fn retag(
 async fn reply(bot: &Bot, msg: &Message, text: &str) -> ResponseResult<()> {
     bot.send_message(msg.chat.id, text)
         .reply_parameters(ReplyParameters::new(msg.id))
+        .link_preview_options(no_preview())
         .await?;
     Ok(())
 }
@@ -360,6 +364,7 @@ async fn import(
     let status = bot
         .send_message(msg.chat.id, "⏳ Importing…")
         .reply_parameters(ReplyParameters::new(msg.id))
+        .link_preview_options(no_preview())
         .await?;
     let mut out = Vec::new();
     for url in &urls {
@@ -515,11 +520,24 @@ async fn wait_tagged(api: &Api, mut item: Item) -> Item {
 }
 
 async fn edit(bot: &Bot, msg: &Message, text: String, markup: Option<InlineKeyboardMarkup>) {
-    let mut req = bot.edit_message_text(msg.chat.id, msg.id, text);
+    let mut req = bot
+        .edit_message_text(msg.chat.id, msg.id, text)
+        .link_preview_options(no_preview());
     if let Some(m) = markup {
         req = req.reply_markup(m);
     }
     if let Err(e) = req.await {
         warn!("edit status: {e}");
+    }
+}
+
+/// Replies carry item and source links; their previews would bury the text.
+fn no_preview() -> LinkPreviewOptions {
+    LinkPreviewOptions {
+        is_disabled: true,
+        url: None,
+        prefer_small_media: false,
+        prefer_large_media: false,
+        show_above_text: false,
     }
 }
