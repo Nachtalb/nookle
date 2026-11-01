@@ -134,6 +134,14 @@ function card(it) {
     it.kind !== 'image' ? el('span', { className: 'kind', textContent: it.kind === 'gif' ? 'GIF' : '▶ ' + fmtDuration(it.duration_ms) }) : null);
   c._item = it;
   if (it.width && it.height) c.style.aspectRatio = `${it.width} / ${it.height}`;
+  const busy = busyLabel(it);
+  if (busy) {
+    // Plex-style: dimmed poster, light sweep, spinner + label until the server is done with it.
+    c.classList.add('busy');
+    if (it.status === 'processing') c.querySelector('img').remove();
+    c.append(el('span', { className: 'busy-veil' }, el('span', { className: 'spinner' }), el('span', { textContent: busy })));
+    watchBusy(it.id);
+  }
   c.onclick = () => openItem(it.id);
   if (it.kind !== 'image') {
     if (noHover) animObserver.observe(c);
@@ -144,6 +152,31 @@ function card(it) {
   }
   cards.set(it.id, c);
   return c;
+}
+
+function busyLabel(it) {
+  if (it.status === 'processing') return 'Converting…';
+  if (it.status === 'ready' && it.analysis === 'pending') return 'Tagging…';
+  return null;
+}
+
+// Busy cards are re-fetched every few seconds and swapped for the finished card.
+const busyIds = new Set();
+let busyTimer = null;
+function watchBusy(id) {
+  busyIds.add(id);
+  busyTimer ??= setInterval(async () => {
+    for (const id of [...busyIds]) {
+      const c = cards.get(id);
+      if (!c?.isConnected) { busyIds.delete(id); continue; }
+      const it = await api('/items/' + id).catch(() => null);
+      if (!it || busyLabel(it) === busyLabel(c._item)) continue;
+      busyIds.delete(id);
+      c.replaceWith(card(it));
+      if (current?.id === id) showItem(it);
+    }
+    if (!busyIds.size) { clearInterval(busyTimer); busyTimer = null; }
+  }, 4000);
 }
 
 let searchTimer;
