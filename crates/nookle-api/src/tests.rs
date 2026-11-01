@@ -23,13 +23,19 @@ fn app() -> (Arc<App>, std::path::PathBuf) {
         cf_token: None,
         max_upload: 50 << 20,
     };
-    let (db, items, aliases) = open_db(&cfg).unwrap();
+    let crate::state::Loaded {
+        db,
+        items,
+        aliases,
+        blocked,
+    } = open_db(&cfg).unwrap();
     let app = Arc::new(App {
         fetcher: nookle_fetch::Fetcher::new(nookle_fetch::Config::default()),
         cfg,
         db: Mutex::new(db),
         items: RwLock::new(items),
         aliases: RwLock::new(aliases),
+        blocked: RwLock::new(blocked),
         leases: Mutex::new(Default::default()),
         http: reqwest::Client::new(),
         encode: tokio::sync::Semaphore::new(2),
@@ -300,6 +306,30 @@ async fn full_flow() {
         )
         .await;
     assert_eq!(it["tags"], json!(["mine", "😏"]));
+
+    // blocked tags leave every item and are dropped from later analyses
+    let (_, b) = t
+        .json(
+            "PUT",
+            "/api/blocked-tags",
+            Some(json!({"tags": ["Mine", "face"]})),
+        )
+        .await;
+    assert_eq!(b["tags"], json!(["face", "mine"]));
+    let (_, it) = t.json("GET", &format!("/api/items/{id}"), None).await;
+    assert_eq!(it["tags"], json!(["😏"]));
+    t.json("POST", &format!("/api/items/{id}/reanalyse"), None)
+        .await;
+    let (_, it) = t
+        .json(
+            "POST",
+            &format!("/api/items/{id}/analysis"),
+            Some(json!({"tags": ["😏", "Face", "cat"], "text": "finally green", "style": "anime"})),
+        )
+        .await;
+    assert_eq!(it["tags"], json!(["cat", "😏"]));
+    t.json("PUT", "/api/blocked-tags", Some(json!({"tags": []})))
+        .await;
     assert_eq!(t.ids("smug").await, vec![id.clone()]);
     assert_eq!(
         ro_t.json("PUT", "/api/aliases", Some(json!({"x": []})))
@@ -360,7 +390,7 @@ async fn full_flow() {
     );
 
     // persistence: reopening the db gives the same items
-    let (_, reloaded, _) = open_db(&app.cfg).unwrap();
+    let reloaded = open_db(&app.cfg).unwrap().items;
     assert_eq!(reloaded.len(), app.items.read().unwrap().len());
     let _ = std::fs::remove_dir_all(dir);
 }

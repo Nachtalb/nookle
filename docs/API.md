@@ -203,6 +203,17 @@ POST /api/items/{id}/reanalyse               rw -> 200 Item (analysis = pending)
 POST /api/analysis/requeue                   rw -> 200 {"queued": n} (every ready item)
 ```
 
+### Blocked tags
+
+Tags the tagger may never add, managed by the owner. Putting a new tag on the
+list also removes it from every item; later analyses drop it. Hand-made tags
+are not filtered.
+
+```
+GET /api/blocked-tags                        any -> {"tags": ["expression", "face"]}
+PUT /api/blocked-tags {"tags": [...]}        rw  -> same; replaces the list
+```
+
 ### Emotion aliases
 
 The tagger stores emotions and expressions as emoji. Its model names them

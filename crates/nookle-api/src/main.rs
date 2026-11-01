@@ -48,6 +48,10 @@ pub fn router(app: Arc<App>) -> Router {
             get(routes::aliases_get).put(routes::aliases_put),
         )
         .route(
+            "/blocked-tags",
+            get(routes::blocked_get).put(routes::blocked_put),
+        )
+        .route(
             "/aliases/{word}",
             axum::routing::delete(routes::aliases_delete),
         )
@@ -92,7 +96,12 @@ async fn main() -> Result<()> {
             .unwrap_or(1024)
             << 20,
     };
-    let (db, items, aliases) = state::open_db(&cfg)?;
+    let state::Loaded {
+        db,
+        items,
+        aliases,
+        blocked,
+    } = state::open_db(&cfg)?;
     tracing::info!(items = items.len(), "loaded");
     let workers = env("NOOKLE_WORKERS")
         .and_then(|v| v.parse().ok())
@@ -103,6 +112,7 @@ async fn main() -> Result<()> {
         db: Mutex::new(db),
         items: RwLock::new(items),
         aliases: RwLock::new(aliases),
+        blocked: RwLock::new(blocked),
         leases: Mutex::new(HashMap::new()),
         http: reqwest::Client::new(),
         encode: tokio::sync::Semaphore::new(workers),

@@ -468,7 +468,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(405, {"error": "bad_request", "message": "method not allowed"})
         self._send(404, {"error": "not_found", "message": "no such route"})
 
-    do_GET = do_HEAD = do_POST = do_PATCH = do_DELETE = dispatch
+    do_GET = do_HEAD = do_POST = do_PATCH = do_PUT = do_DELETE = dispatch
 
     def query(self):
         return {k: v[-1] for k, v in urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).items()}
@@ -676,6 +676,21 @@ def tags(h):
                 counts[t] = counts.get(t, 0) + 1
     top = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]
     h._send(200, {"tags": [{"tag": t, "count": c} for t, c in top]})
+
+
+@route("GET", "/api/blocked-tags", "ro")
+def blocked_get(h):
+    h._send(200, {"tags": sorted(getattr(h.store, "blocked", []))})
+
+
+@route("PUT", "/api/blocked-tags", "rw")
+def blocked_put(h):
+    tags = sorted({t.strip().lower() for t in h.json_body().get("tags", []) if t.strip()})
+    added = set(tags) - set(getattr(h.store, "blocked", []))
+    h.store.blocked = tags
+    for it in h.store.items.values():
+        it["tags"] = [t for t in it["tags"] if t not in added]
+    h._send(200, {"tags": tags})
 
 
 # ----- routes: analysis -----

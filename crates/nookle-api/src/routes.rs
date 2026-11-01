@@ -530,6 +530,22 @@ pub async fn analysis_requeue(State(app): S, auth: Auth) -> R<Json<Value>> {
     Ok(Json(json!({ "queued": n })))
 }
 
+pub async fn blocked_get(State(app): S, _auth: Auth) -> Json<Value> {
+    Json(json!({ "tags": *app.blocked.read().unwrap() }))
+}
+
+/// Replaces the list of tags the tagger may never add; newly blocked ones leave every item.
+pub async fn blocked_put(State(app): S, auth: Auth, Json(b): Json<BlockedBody>) -> R<Json<Value>> {
+    auth.need(Scope::Rw)?;
+    let tags = app.set_blocked(clean_tags(b.tags));
+    Ok(Json(json!({ "tags": tags })))
+}
+
+#[derive(Deserialize)]
+pub struct BlockedBody {
+    tags: Vec<String>,
+}
+
 pub async fn aliases_get(State(app): S, _auth: Auth) -> Json<Value> {
     Json(json!({ "aliases": *app.aliases.read().unwrap() }))
 }
@@ -635,7 +651,11 @@ pub async fn analysis_submit(
         AnalysisReport::Done { tags, text, style } => {
             let old = std::mem::take(&mut r.ai_tags);
             let kept = r.item.tags.drain(..).filter(|t| !old.contains(t));
-            r.ai_tags = clean_tags(tags);
+            let blocked = app.blocked.read().unwrap();
+            r.ai_tags = clean_tags(
+                tags.into_iter()
+                    .filter(|t| !blocked.contains(&t.trim().to_lowercase())),
+            );
             r.item.tags = clean_tags(kept.chain(r.ai_tags.iter().cloned()));
             r.item.text = text;
             r.item.style = Some(style);

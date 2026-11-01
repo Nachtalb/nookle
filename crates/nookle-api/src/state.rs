@@ -67,6 +67,8 @@ pub struct App {
     pub leases: Mutex<HashMap<String, Instant>>,
     /// Emotion word -> emoji, learned by the tagger (`[]` = no emoji fits). Search maps words through it.
     pub aliases: RwLock<HashMap<String, Vec<String>>>,
+    /// Tags never kept from the tagger, managed by the owner (`expression`, `face`, …).
+    pub blocked: RwLock<Vec<String>>,
     pub http: reqwest::Client,
     pub fetcher: nookle_fetch::Fetcher,
     pub encode: tokio::sync::Semaphore,
@@ -105,7 +107,14 @@ pub fn fix_urls(item: &mut Item, base: &str) {
 
 pub type Aliases = HashMap<String, Vec<String>>;
 
-pub fn open_db(cfg: &Config) -> Result<(Connection, HashMap<String, Rec>, Aliases)> {
+pub struct Loaded {
+    pub db: Connection,
+    pub items: HashMap<String, Rec>,
+    pub aliases: Aliases,
+    pub blocked: Vec<String>,
+}
+
+pub fn open_db(cfg: &Config) -> Result<Loaded> {
     std::fs::create_dir_all(cfg.media())?;
     std::fs::create_dir_all(cfg.tmp())?;
     let db = Connection::open(cfg.data.join("nookle.db"))?;
@@ -115,7 +124,8 @@ pub fn open_db(cfg: &Config) -> Result<(Connection, HashMap<String, Rec>, Aliase
          CREATE TABLE IF NOT EXISTS keys (id TEXT PRIMARY KEY, name TEXT NOT NULL, scope TEXT NOT NULL,
             hash TEXT NOT NULL UNIQUE, prefix TEXT NOT NULL, created_at TEXT NOT NULL, last_used_at TEXT);
          CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, scope TEXT NOT NULL, key_id TEXT);
-         CREATE TABLE IF NOT EXISTS aliases (word TEXT PRIMARY KEY, emoji TEXT NOT NULL);",
+         CREATE TABLE IF NOT EXISTS aliases (word TEXT PRIMARY KEY, emoji TEXT NOT NULL);
+         CREATE TABLE IF NOT EXISTS blocked_tags (tag TEXT PRIMARY KEY);",
     )?;
     let mut items = HashMap::new();
     {
@@ -138,9 +148,18 @@ pub fn open_db(cfg: &Config) -> Result<(Connection, HashMap<String, Rec>, Aliase
             aliases.insert(word, serde_json::from_str(&emoji)?);
         }
     }
+    let blocked = db
+        .prepare("SELECT tag FROM blocked_tags ORDER BY tag")?
+        .query_map([], |r| r.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
     let _ = std::fs::remove_dir_all(cfg.tmp());
     std::fs::create_dir_all(cfg.tmp())?;
-    Ok((db, items, aliases))
+    Ok(Loaded {
+        db,
+        items,
+        aliases,
+        blocked,
+    })
 }
 
 impl App {
@@ -195,6 +214,39 @@ impl App {
         if let Err(e) = r {
             tracing::error!(word, "saving alias: {e}");
         }
+    }
+
+    /// Replaces the blocked list and strips newly blocked tags from every item.
+    pub fn set_blocked(&self, tags: Vec<String>) -> Vec<String> {
+        let added: Vec<String> = {
+            let old = self.blocked.read().unwrap();
+            tags.iter().filter(|t| !old.contains(t)).cloned().collect()
+        };
+        {
+            let db = self.db.lock().unwrap();
+            let _ = db.execute("DELETE FROM blocked_tags", []);
+            for t in &tags {
+                let _ = db.execute("INSERT OR IGNORE INTO blocked_tags (tag) VALUES (?1)", [t]);
+            }
+        }
+        *self.blocked.write().unwrap() = tags.clone();
+        if !added.is_empty() {
+            let ids: Vec<String> = self
+                .items
+                .read()
+                .unwrap()
+                .values()
+                .filter(|r| r.item.tags.iter().any(|t| added.contains(t)))
+                .map(|r| r.item.id.clone())
+                .collect();
+            for id in ids {
+                self.update(&id, |r| {
+                    r.item.tags.retain(|t| !added.contains(t));
+                    r.ai_tags.retain(|t| !added.contains(t));
+                });
+            }
+        }
+        tags
     }
 
     pub fn get(&self, id: &str) -> Option<Rec> {
