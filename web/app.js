@@ -189,11 +189,10 @@ function showItem(it) {
   $('#item-media').replaceChildren(m);
   $('#item-page').href = it.page_url;
   const row = (k, v) => v || v === 0 ? [el('dt', { textContent: k }), el('dd', {}, v)] : [];
-  const tags = el('div', { className: 'chips' }, ...it.tags.map((t) => {
-    const b = el('button', { className: 'chip term', textContent: t, type: 'button' });
-    b.onclick = () => { nav({ q: t, item: null }); applyRoute(); };
-    return b;
-  }));
+  const tags = tagEditor(it.tags, {
+    onClick: (t) => { nav({ q: t, item: null }); applyRoute(); },
+    onChange: canWrite() ? (next) => saveTags(it.id, next) : null,
+  });
   const sources = it.sources.length ? el('div', {}, ...it.sources.map((s) =>
     el('div', {}, el('a', { href: s.url, target: '_blank', rel: 'noopener', textContent: s.author ? `${s.site}: @${s.author}` : s.url })))) : null;
   $('#item-info').replaceChildren(
@@ -207,6 +206,74 @@ function showItem(it) {
       ...row('Added', fmtDate(it.added_at)),
       ...row('Last used', fmtDate(it.last_used_at)),
       ...row('Status', `${it.status} · analysis ${it.analysis}`)));
+}
+
+async function saveTags(id, tags) {
+  try {
+    const it = await api('/items/' + id, { method: 'PATCH', json: { tags } });
+    cards.get(it.id)?.replaceWith(card(it));
+    if (current?.id === it.id) { current = it; return it.tags; }
+  } catch (err) {
+    toast(err.message);
+    if (current?.id === id) showItem(current);
+  }
+}
+
+// Chips with ✕ to remove and an input to add (Enter or comma), suggesting known tags.
+// onChange(tags) may return the saved list to show; without it the editor is read-only.
+function tagEditor(initial, { onClick, onChange }) {
+  let tags = [...initial];
+  const box = el('div', { className: 'chips tag-editor' });
+  const input = el('input', { className: 'tag-input', placeholder: 'add tag…', enterKeyHint: 'done', autocomplete: 'off' });
+  input.setAttribute('list', 'tag-suggest');
+  const set = async (next) => {
+    tags = next;
+    render();
+    const saved = await onChange(next);
+    if (saved) { tags = saved; render(); }
+  };
+  const add = (raw) => {
+    const fresh = parseTags(raw).filter((t) => !tags.includes(t));
+    if (fresh.length) set([...tags, ...fresh]);
+  };
+  function render() {
+    box.replaceChildren(...tags.map((t) => {
+      const chip = el('span', { className: 'chip term' });
+      const label = el('button', { type: 'button', className: 'chip-label', textContent: t });
+      if (onClick) label.onclick = () => onClick(t);
+      chip.append(label);
+      if (onChange) {
+        const x = el('button', { type: 'button', className: 'chip-x', textContent: '✕', title: 'Remove ' + t });
+        x.onclick = () => set(tags.filter((y) => y !== t));
+        chip.append(x);
+      }
+      return chip;
+    }), onChange ? input : '');
+  }
+  if (onChange) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); add(input.value); input.value = ''; }
+      else if (e.key === 'Backspace' && !input.value && tags.length) set(tags.slice(0, -1));
+    });
+    input.addEventListener('input', () => {
+      if (input.value.includes(',')) { add(input.value); input.value = ''; return; }
+      suggest(input.value);
+    });
+    input.addEventListener('change', () => { if (input.value.trim()) { add(input.value); input.value = ''; } });
+  }
+  render();
+  box.tags = () => tags;
+  return box;
+}
+
+let suggestTimer;
+function suggest(prefix) {
+  clearTimeout(suggestTimer);
+  if (!prefix.trim()) return;
+  suggestTimer = setTimeout(async () => {
+    const r = await api('/tags?' + new URLSearchParams({ q: prefix.trim(), limit: 8 })).catch(() => null);
+    if (r) $('#tag-suggest').replaceChildren(...r.tags.map((t) => el('option', { value: t.tag })));
+  }, 150);
 }
 
 async function copy(text) {
@@ -230,12 +297,11 @@ $('#item-copy').onclick = async () => {
 
 $('#item-edit').onclick = () => {
   const f = $('#edit-form'), it = current;
-  f.tags.value = it.tags.join(', ');
   f.text.value = it.text;
   f.style.value = it.style || '';
   f.sources.value = it.sources.map((s) => s.url).join('\n');
   f.hidden = false;
-  f.tags.focus();
+  f.text.focus();
 };
 $('#edit-cancel').onclick = () => ($('#edit-form').hidden = true);
 
@@ -245,7 +311,7 @@ $('#edit-form').onsubmit = async (e) => {
   try {
     const it = await api('/items/' + current.id, {
       method: 'PATCH',
-      json: { tags: parseTags(f.tags.value), text: f.text.value, style: f.style.value || null, sources: parseLines(f.sources.value) },
+      json: { text: f.text.value, style: f.style.value || null, sources: parseLines(f.sources.value) },
     });
     showItem(it);
     cards.get(it.id)?.replaceWith(card(it));
@@ -299,7 +365,7 @@ $('#up-go').onclick = async () => {
   const jobs = pending;
   pending = [];
   $('#up-go').disabled = true;
-  const source = $('#up-source').value.trim(), tags = $('#up-tags').value.trim();
+  const source = $('#up-source').value.trim(), tags = upTags.tags().join(',');
   for (const j of jobs) await upload(j, source, tags, false);
 };
 
@@ -356,7 +422,7 @@ $('#import-form').onsubmit = async (e) => {
 };
 
 async function runImport(url, media, force) {
-  const tags = parseTags($('#up-tags').value);
+  const tags = upTags.tags();
   const head = el('li', {}, el('span', { className: 'name', textContent: url + (media ? ` #${media[0]}` : '') }), el('span', { className: 'state muted', textContent: 'importing…' }));
   $('#import-queue').append(head);
   try {
@@ -372,6 +438,9 @@ async function runImport(url, media, force) {
     setState(head, err.message, 'error');
   }
 }
+
+const upTags = tagEditor([], { onChange: () => {} });
+$('#up-tags').replaceWith(upTags);
 
 $('#open-upload').onclick = () => openView('add');
 $('#upload').addEventListener('close', () => {

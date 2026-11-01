@@ -59,7 +59,6 @@
   </div>
   <div id="item-info"></div>
   <form id="edit-form" hidden>
-    <label>Tags (comma separated)<input name="tags"></label>
     <label>Text<textarea name="text" rows="3"></textarea></label>
     <label>Style<select name="style">
       <option value="">(none)</option><option>anime</option><option>cartoon</option><option>photo</option>
@@ -77,7 +76,7 @@
     <span>Tap to pick, drop or paste files</span>
   </label>
   <label>Source URL (optional)<input id="up-source" type="url" placeholder="https://…"></label>
-  <label>Tags (optional, comma separated)<input id="up-tags"></label>
+  <label>Tags (optional)<div id="up-tags"></div></label>
   <div class="actions"><button class="primary" id="up-go" disabled>Upload</button></div>
   <ul class="queue" id="up-queue"></ul>
   <h3>Import from URL</h3>
@@ -102,6 +101,7 @@
   <ul class="keys" id="key-list"></ul>
 </dialog>
 
+<datalist id="tag-suggest"></datalist>
 <div id="toast" hidden></div>
 </body>
 </html>
