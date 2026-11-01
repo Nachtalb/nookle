@@ -384,9 +384,36 @@ function tagEditor(initial, { onClick, onChange, onRemove, hits = [] }) {
       show(rankSuggestions(q, r.tags.filter((t) => !tags.includes(t.tag)), emojiNames));
     }, 120);
   };
+  const remove = (t) => { set(tags.filter((y) => y !== t)); onRemove?.(t); };
+  const labels = () => [...box.querySelectorAll('.chip-label')];
+  // Keyboard: Left from an empty field selects the last chip; Left/Right walk the chips,
+  // Backspace/Delete remove the selected one, Esc or typing goes back to the field.
+  const pick = (i) => {
+    const ls = labels();
+    if (i >= ls.length || i < 0 && !ls.length) return input.focus();
+    ls[Math.max(0, i)].focus();
+  };
+  box.addEventListener('keydown', (e) => {
+    const label = e.target.closest?.('.chip-label');
+    if (!label || !onChange) return;
+    const i = labels().indexOf(label), t = tags[i];
+    if (e.key === 'ArrowLeft') pick(i - 1);
+    else if (e.key === 'ArrowRight') pick(i + 1);
+    else if (e.key === 'Backspace' || e.key === 'Delete') {
+      remove(t);
+      pick(e.key === 'Backspace' ? i - 1 : i);
+    } else if (e.key === 'Escape') input.focus();
+    else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) return input.focus();
+    else return;
+    // keep the item view's arrow keys (prev/next item) and Esc (close) out of it
+    e.preventDefault();
+    e.stopPropagation();
+  });
   // Only the chips are rebuilt; the input stays in place, since re-inserting it would blur it
   // (and close the phone keyboard) every time a tag is added.
   function render() {
+    // a selected chip stays selected (by position) when the saved list comes back
+    const sel = labels().indexOf(document.activeElement);
     for (const c of [...box.children]) if (c !== field) c.remove();
     const chipEls = tags.map((t) => {
       const chip = el('span', { className: 'chip term' + (hits.includes(t) ? ' hit' : '') });
@@ -395,7 +422,7 @@ function tagEditor(initial, { onClick, onChange, onRemove, hits = [] }) {
       chip.append(label);
       if (onChange) {
         const x = el('button', { type: 'button', className: 'chip-x', textContent: '✕', title: 'Remove ' + t });
-        x.onclick = () => { set(tags.filter((y) => y !== t)); onRemove?.(t); };
+        x.onclick = () => remove(t);
         chip.append(x);
       }
       return chip;
@@ -404,6 +431,7 @@ function tagEditor(initial, { onClick, onChange, onRemove, hits = [] }) {
       if (!field.isConnected || field.parentNode !== box) box.append(field);
       field.before(...chipEls);
     } else box.append(...chipEls);
+    if (sel >= 0) pick(Math.min(sel, tags.length - 1));
   }
   if (onChange) {
     submit.addEventListener('pointerdown', (e) => e.preventDefault());
@@ -416,6 +444,7 @@ function tagEditor(initial, { onClick, onChange, onRemove, hits = [] }) {
       else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); input.blur(); }
       else if (e.key === 'Enter') { e.preventDefault(); active >= 0 ? add(options[active].value) : add(input.value); }
       else if (e.key === 'Backspace' && !input.value && tags.length) set(tags.slice(0, -1));
+      else if (e.key === 'ArrowLeft' && !input.value && tags.length) { e.preventDefault(); e.stopPropagation(); pick(tags.length - 1); }
     });
     input.addEventListener('input', () => {
       if (input.value.includes(',')) return add(input.value);
