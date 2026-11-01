@@ -420,5 +420,6 @@ for (const d of document.querySelectorAll('dialog')) {
 }
 $('#item').addEventListener('close', () => $('#item-media').replaceChildren());
 
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
 api('/me').then((me) => showApp(me.scope)).catch(() => showLogin());
