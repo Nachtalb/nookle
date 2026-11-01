@@ -88,6 +88,10 @@ pub struct Item {
     pub hits: u64,
     pub added_at: DateTime<Utc>,
     pub last_used_at: Option<DateTime<Utc>>,
+    /// When the item was last adjusted by hand (tags, text, style, sources) or marked as reviewed;
+    /// `None` while only the tagger has touched it.
+    #[serde(default)]
+    pub reviewed_at: Option<DateTime<Utc>>,
     pub status: Status,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
@@ -221,7 +225,7 @@ mod tests {
             "page_url": "https://n.naa.gg/bUiLdGrn", "width": 640, "height": 480, "duration_ms": null,
             "has_audio": false, "size": 11700, "style": "3d", "tags": s["tags"], "text": s["text"],
             "sources": s["sources"], "hits": 42, "added_at": "2026-10-30T12:00:00Z", "last_used_at": null,
-            "status": "ready", "analysis": "done", "telegram": {"type": "photo", "file_id": "x"}
+            "reviewed_at": null, "status": "ready", "analysis": "done", "telegram": {"type": "photo", "file_id": "x"}
         });
         let item: Item = serde_json::from_value(json.clone()).unwrap();
         assert_eq!(item.style, Some(Style::ThreeD));

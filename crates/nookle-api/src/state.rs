@@ -117,6 +117,17 @@ pub struct Loaded {
     pub blocked: Vec<String>,
 }
 
+/// Records from before `reviewed_at` existed: tags that differ from what the tagger set mean they
+/// were adjusted by hand. When exactly is unknown, so the mark gets the time it was added. Such a
+/// record keeps being re-derived the same way on each start until it is next saved.
+fn backfill_reviewed(rec: &mut Rec) {
+    let tags: std::collections::BTreeSet<_> = rec.item.tags.iter().collect();
+    let ai: std::collections::BTreeSet<_> = rec.ai_tags.iter().collect();
+    if tags != ai {
+        rec.item.reviewed_at = Some(rec.item.added_at);
+    }
+}
+
 pub fn open_db(cfg: &Config) -> Result<Loaded> {
     std::fs::create_dir_all(cfg.media())?;
     std::fs::create_dir_all(cfg.tmp())?;
@@ -134,7 +145,11 @@ pub fn open_db(cfg: &Config) -> Result<Loaded> {
     {
         let mut st = db.prepare("SELECT rec FROM items")?;
         for row in st.query_map([], |r| r.get::<_, String>(0))? {
-            let mut rec: Rec = serde_json::from_str(&row?)?;
+            let row = row?;
+            let mut rec: Rec = serde_json::from_str(&row)?;
+            if !row.contains("\"reviewed_at\"") {
+                backfill_reviewed(&mut rec);
+            }
             fix_urls(&mut rec.item, &cfg.public_url);
             if rec.item.status == Status::Processing {
                 rec.item.status = Status::Failed;

@@ -88,6 +88,7 @@ pub async fn ingest(
         hits: 0,
         added_at: Utc::now(),
         last_used_at: None,
+        reviewed_at: None,
         status: Status::Processing,
         error: None,
         analysis: Analysis::Pending,

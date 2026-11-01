@@ -144,7 +144,7 @@ class Store:
             for s in json.load(open(os.path.join(SAMPLES, "manifest.json")))["items"]:
                 path = os.path.join(SAMPLES, s["file"])
                 it = dict(s, path=path, thumb=os.path.join(SAMPLES, "stored", s["id"] + ".thumb.webp"),
-                          added_at=rel_time(s["added_at"]), last_used_at=rel_time(s["last_used_at"]),
+                          added_at=rel_time(s["added_at"]), last_used_at=rel_time(s["last_used_at"]), reviewed_at=None,
                           input_hash=hashlib.sha256(open(os.path.join(SAMPLES, s["input"]), "rb").read()).hexdigest(),
                           phash=ahash(path), ready_at=0, lease=0, error=None,
                           size=os.path.getsize(path))
@@ -178,7 +178,7 @@ class Store:
             "duration_ms": it["duration_ms"], "has_audio": it["has_audio"], "size": it["size"],
             "style": it["style"], "tags": it["tags"], "text": it["text"], "sources": it["sources"],
             "hits": it["hits"], "added_at": iso(it["added_at"]), "last_used_at": iso(it["last_used_at"]),
-            "status": st, "analysis": it["analysis"],
+            "reviewed_at": iso(it.get("reviewed_at")), "status": st, "analysis": it["analysis"],
         }
         if st == "failed":
             out["error"] = it["error"]
@@ -223,7 +223,7 @@ class Store:
             it = {"id": iid, "kind": kind, "path": path, "thumb": None, "width": v.get("width"),
                   "height": v.get("height"), "duration_ms": int(dur * 1000) if kind != "image" and dur else None,
                   "has_audio": has_audio, "size": len(data), "style": None, "tags": sorted(set(tags)), "text": "",
-                  "sources": [source_obj(s) for s in sources], "hits": 0, "added_at": now(), "last_used_at": None,
+                  "sources": [source_obj(s) for s in sources], "hits": 0, "added_at": now(), "last_used_at": None, "reviewed_at": None,
                   "analysis": "pending", "input_hash": h, "phash": ph, "ready_at": time.time() + PROCESS_DELAY,
                   "lease": 0, "error": None}
             self.items[iid] = it
@@ -347,6 +347,8 @@ def sort_key(sort):
         return lambda it: (it["last_used_at"] or epoch, it["added_at"])
     if sort == "added":
         return lambda it: it["added_at"]
+    if sort == "reviewed":
+        return lambda it: (it.get("reviewed_at") or epoch, it["added_at"])
     return lambda it: (it["hits"], it["last_used_at"] or epoch, it["added_at"])
 
 
@@ -561,8 +563,8 @@ def keys_delete(h, kid):
 def items_list(h):
     q = h.query()
     sort = q.get("sort", "used")
-    if sort not in ("used", "recent", "added"):
-        raise ApiError(400, "bad_request", "sort must be used|recent|added")
+    if sort not in ("used", "recent", "added", "reviewed"):
+        raise ApiError(400, "bad_request", "sort must be used|recent|added|reviewed")
     try:
         limit = max(1, min(200, int(q.get("limit", 50))))
         offset = int(base64.urlsafe_b64decode(q["cursor"]).decode()) if q.get("cursor") else 0
@@ -655,6 +657,10 @@ def items_patch(h, iid):
         it["style"] = b["style"]
     if "sources" in b:
         it["sources"] = [source_obj(s) for s in b["sources"]]
+    if "reviewed" in b:
+        it["reviewed_at"] = now() if b["reviewed"] else None
+    elif {"tags", "text", "style", "sources"} & b.keys():
+        it["reviewed_at"] = now()
     h._send(200, h.store.public(it))
 
 

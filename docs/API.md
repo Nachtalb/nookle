@@ -59,6 +59,7 @@ DELETE /api/keys/{id}             admin     -> 204
   "hits": 42,
   "added_at": "2026-10-30T12:00:00Z",
   "last_used_at": "2026-10-31T12:00:00Z",
+  "reviewed_at": null,
   "status": "ready",
   "analysis": "done",
   "telegram": {"type": "photo", "file_id": "AgAC..."}
@@ -89,7 +90,8 @@ GET    /api/tags?q=&limit=                  ro  -> 200 {"tags": [{"tag", "count"
 ### List / search
 
 - `sort`: `used` (default: hits desc, then last use, then added), `recent`
-  (last used desc, never-used last), `added` (newest first).
+  (last used desc, never-used last), `added` (newest first), `reviewed` (reviewed items
+  first, latest review on top, then the rest newest first).
 - `limit`: 1–200, default 50. `cursor`: opaque, at most 64 bytes (fits Telegram's inline `next_offset`), from `next_cursor` (`null` = end).
 - `query` echoes how `q` was understood, so UIs can show it as chips:
 
@@ -171,7 +173,9 @@ when fxtwitter or the download fails.
 ### Edit
 
 `PATCH /api/items/{id}` with any of `tags` (replaces), `text`, `style`,
-`sources` (replaces, list of URLs or source objects).
+`sources` (replaces, list of URLs or source objects). Any of those sets `reviewed_at` to now;
+`reviewed: true|false` sets or clears it on its own. `reviewed_at` stays `null` while only the
+tagger has touched an item.
 
 ### Hit
 

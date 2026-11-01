@@ -223,8 +223,8 @@ pub struct ListQ {
 
 pub async fn items_list(State(app): S, _auth: Auth, Query(p): Query<ListQ>) -> R<Json<ItemPage>> {
     let sort = p.sort.as_deref().unwrap_or("used");
-    if !matches!(sort, "used" | "recent" | "added") {
-        return Err(ApiErr::bad("sort must be used|recent|added"));
+    if !matches!(sort, "used" | "recent" | "added" | "reviewed") {
+        return Err(ApiErr::bad("sort must be used|recent|added|reviewed"));
     }
     let limit = p.limit.unwrap_or(50).clamp(1, 200);
     let offset: usize = match p.cursor.as_deref() {
@@ -446,6 +446,8 @@ pub struct Patch {
     #[serde(default, deserialize_with = "serde_with_none::deserialize")]
     style: Option<Option<Style>>,
     sources: Option<Vec<SourceIn>>,
+    /// Sets or clears the reviewed mark. Without it, any other change marks the item reviewed.
+    reviewed: Option<bool>,
 }
 
 mod serde_with_none {
@@ -511,6 +513,7 @@ pub async fn items_patch(
     Json(b): Json<Patch>,
 ) -> R<Json<Item>> {
     auth.need(Scope::Rw)?;
+    let edited = b.tags.is_some() || b.text.is_some() || b.style.is_some() || b.sources.is_some();
     app.update(&id, |r| {
         let i = &mut r.item;
         if let Some(t) = b.tags {
@@ -530,6 +533,12 @@ pub async fn items_patch(
                     SourceIn::Obj(o) => o,
                 })
                 .collect();
+        }
+        match b.reviewed {
+            Some(false) => i.reviewed_at = None,
+            Some(true) => i.reviewed_at = Some(Utc::now()),
+            None if edited => i.reviewed_at = Some(Utc::now()),
+            None => {}
         }
     })
     .map(Json)

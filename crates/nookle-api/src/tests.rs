@@ -382,6 +382,29 @@ async fn full_flow() {
         ),
         (json!(["ok"]), Value::Null, json!("telegram"))
     );
+    // a hand edit marks the item reviewed; the mark can be toggled and sorts reviewed items first
+    assert!(it["reviewed_at"].is_string());
+    let png = ids["transparent.png"].clone();
+    let (_, un) = t
+        .json(
+            "PATCH",
+            &format!("/api/items/{png}"),
+            Some(json!({"reviewed": false})),
+        )
+        .await;
+    assert!(un["reviewed_at"].is_null());
+    let (_, re) = t
+        .json(
+            "PATCH",
+            &format!("/api/items/{png}"),
+            Some(json!({"reviewed": true})),
+        )
+        .await;
+    assert!(re["reviewed_at"].is_string());
+    let (_, page) = t
+        .json("GET", "/api/items?sort=reviewed&limit=1", None)
+        .await;
+    assert_eq!(page["items"][0]["id"], json!(png));
     assert_eq!(
         t.json(
             "DELETE",
@@ -407,5 +430,25 @@ async fn full_flow() {
     // persistence: reopening the db gives the same items
     let reloaded = open_db(&app.cfg).unwrap().items;
     assert_eq!(reloaded.len(), app.items.read().unwrap().len());
+
+    // records saved before `reviewed_at` existed: marked when their tags differ from the tagger's
+    let db = rusqlite::Connection::open(app.cfg.data.join("nookle.db")).unwrap();
+    let legacy = |id: &str, tags: Value, ai: Value| {
+        let mut rec: Value = serde_json::to_value(reloaded.values().next().unwrap()).unwrap();
+        rec["item"]["id"] = json!(id);
+        rec["item"]["tags"] = tags;
+        rec["item"].as_object_mut().unwrap().remove("reviewed_at");
+        rec["ai_tags"] = ai;
+        db.execute(
+            "INSERT INTO items (id, rec) VALUES (?1, ?2)",
+            (id, rec.to_string()),
+        )
+        .unwrap();
+    };
+    legacy("legacyAI", json!(["cat", "😺"]), json!(["😺", "cat"]));
+    legacy("legacyHd", json!(["cat", "mine"]), json!(["cat"]));
+    let items = open_db(&app.cfg).unwrap().items;
+    assert!(items["legacyAI"].item.reviewed_at.is_none());
+    assert!(items["legacyHd"].item.reviewed_at.is_some());
     let _ = std::fs::remove_dir_all(dir);
 }
