@@ -563,7 +563,14 @@ let pending = [], added = false;
 function addFiles(files) {
   if (!canWrite()) return;
   for (const f of files) {
-    const li = el('li', {}, el('span', { className: 'name', textContent: f.name || 'pasted' }), el('span', { className: 'state muted', textContent: 'queued' }));
+    // Fixed two-line rows (thumb | name over state | actions) so they keep their height as the
+    // state changes.
+    const thumb = el('span', { className: 'q-thumb' });
+    if (f.type.startsWith('image/')) thumb.append(el('img', { src: URL.createObjectURL(f), alt: '' }));
+    else thumb.textContent = f.type.startsWith('video/') ? '▶' : '…';
+    const li = el('li', { className: 'q-row' }, thumb,
+      el('span', { className: 'q-main' }, el('span', { className: 'name', textContent: f.name || 'pasted' }), el('span', { className: 'state muted', textContent: 'queued' })),
+      el('span', { className: 'q-extra' }));
     pending.push({ file: f, li });
     $('#up-queue').append(li);
   }
@@ -607,7 +614,14 @@ async function upload(j, source, tags, force) {
 }
 
 function setState(li, text, cls = 'muted', ...extra) {
-  li.querySelector('.state').replaceWith(el('span', { className: 'state ' + cls, textContent: text }, ...extra));
+  if (!li.classList.contains('q-row')) {
+    li.querySelector('.state').replaceWith(el('span', { className: 'state ' + cls, textContent: text }, ...extra));
+    return;
+  }
+  // item links sit inline on the state line; real actions (Add anyway) go on the right
+  const links = extra.filter((x) => x.classList?.contains('mini'));
+  li.querySelector('.state').replaceWith(el('span', { className: 'state ' + cls, title: text.trim() }, text, ...links));
+  li.querySelector('.q-extra').replaceChildren(...extra.filter((x) => !links.includes(x)));
 }
 
 const itemLink = (it) => {
@@ -624,7 +638,11 @@ async function track(li, it) {
     try { it = await api('/items/' + it.id); } catch (err) { return setState(li, err.message, 'error'); }
   }
   if (it.status === 'failed') setState(li, 'failed: ' + it.error, 'error');
-  else setState(li, 'ready ', 'ok', itemLink(it));
+  else {
+    setState(li, 'ready ', 'ok', itemLink(it));
+    const th = li.querySelector('.q-thumb');
+    if (th) th.replaceChildren(el('img', { src: it.thumb_url, alt: '' }));
+  }
 }
 
 function showDup(li, d, force) {
