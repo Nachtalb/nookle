@@ -73,9 +73,10 @@ DELETE /api/keys/{id}             admin     -> 204
 - `site`: `x` | `telegram` | `web`.
 - `telegram`: `null` until the Telegram copy has been uploaded.
 - Times are RFC 3339 UTC.
+- `highlights` (search results only): `{id: {"tags": [...], "text": [...]}}`, the item's tags that matched and the lowercase pieces of its text that matched; items without a match, and empty searches, have no entry.
 
 ```
-GET    /api/items?q=&sort=&limit=&cursor=   ro  -> 200 {"items", "next_cursor", "query"}
+GET    /api/items?q=&sort=&limit=&cursor=   ro  -> 200 {"items", "next_cursor", "query", "highlights"}
 GET    /api/items/{id}                      ro  -> 200 Item
 POST   /api/items            multipart      rw  -> 201 Item | 409 duplicate
 POST   /api/items/import     json           rw  -> 200 {"results": [ImportResult]}
