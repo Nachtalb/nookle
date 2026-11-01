@@ -4,8 +4,14 @@ RUN apk add --no-cache curl tar
 COPY scripts/fetch-emoji.sh /fetch-emoji.sh
 RUN /fetch-emoji.sh /out
 
-FROM ghcr.io/static-web-server/static-web-server:2
+FROM alpine:3.22 AS web
 COPY web/ /public/
+COPY scripts/version-assets.sh /version-assets.sh
+RUN /version-assets.sh /public
+
+FROM ghcr.io/static-web-server/static-web-server:2
+COPY --from=web /public/ /public/
 COPY --from=emoji /out/emoji/ /public/emoji/
 COPY userscript/nookle.user.js /public/nookle.user.js
-ENV SERVER_PORT=8080 SERVER_ROOT=/public SERVER_CACHE_CONTROL_HEADERS=false
+COPY web.toml /web.toml
+ENV SERVER_PORT=8080 SERVER_ROOT=/public SERVER_CACHE_CONTROL_HEADERS=false SERVER_CONFIG_FILE=/web.toml

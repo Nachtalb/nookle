@@ -1,0 +1,17 @@
+# static-web-server: the app shell must revalidate, or Cloudflare keeps old CSS/JS for hours.
+[advanced]
+
+[[advanced.headers]]
+source = "**/*.{html,css,js,webmanifest}"
+[advanced.headers.headers]
+Cache-Control = "no-cache"
+
+[[advanced.headers]]
+source = "/"
+[advanced.headers.headers]
+Cache-Control = "no-cache"
+
+[[advanced.headers]]
+source = "/emoji/**"
+[advanced.headers.headers]
+Cache-Control = "public, max-age=31536000, immutable"
