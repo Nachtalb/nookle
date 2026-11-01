@@ -232,14 +232,16 @@ pub async fn items_list(State(app): S, _auth: Auth, Query(p): Query<ListQ>) -> R
         None => 0,
     };
     let pq = nookle_core::query::parse(p.q.as_deref().unwrap_or(""), Utc::now());
+    let aliases = app.aliases.read().unwrap();
     let mut hits: Vec<Item> = app
         .items
         .read()
         .unwrap()
         .values()
-        .filter(|r| search::matches(&r.item, &pq))
+        .filter(|r| search::matches(&r.item, &pq, &aliases))
         .map(|r| r.item.clone())
         .collect();
+    drop(aliases);
     search::sort(&mut hits, sort);
     let next_cursor = (offset + limit < hits.len()).then(|| (offset + limit).to_string());
     let items = hits.into_iter().skip(offset).take(limit).collect();
@@ -503,6 +505,64 @@ pub async fn items_delete(State(app): S, auth: Auth, Path(id): Path<String>) -> 
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Queues an item for the tagger again; its previous AI tags are replaced, hand-made ones stay.
+pub async fn items_reanalyse(State(app): S, auth: Auth, Path(id): Path<String>) -> R<Json<Item>> {
+    auth.need(Scope::Rw)?;
+    app.leases.lock().unwrap().remove(&id);
+    app.update(&id, |r| r.item.analysis = Analysis::Pending)
+        .map(Json)
+        .ok_or_else(ApiErr::not_found)
+}
+
+/// Queues every ready item for the tagger again.
+pub async fn analysis_requeue(State(app): S, auth: Auth) -> R<Json<Value>> {
+    auth.need(Scope::Rw)?;
+    let ids: Vec<String> = app.items.read().unwrap().keys().cloned().collect();
+    let mut n = 0;
+    for id in ids {
+        app.update(&id, |r| {
+            if r.item.status == Status::Ready && r.item.analysis != Analysis::Pending {
+                r.item.analysis = Analysis::Pending;
+                n += 1;
+            }
+        });
+    }
+    Ok(Json(json!({ "queued": n })))
+}
+
+pub async fn aliases_get(State(app): S, _auth: Auth) -> Json<Value> {
+    Json(json!({ "aliases": *app.aliases.read().unwrap() }))
+}
+
+/// Adds or replaces word -> emoji aliases. Unknown emoji are dropped; `[]` records "no emoji fits".
+pub async fn aliases_put(
+    State(app): S,
+    auth: Auth,
+    Json(b): Json<std::collections::HashMap<String, Vec<String>>>,
+) -> R<Json<Value>> {
+    auth.need(Scope::Rw)?;
+    for (word, emoji) in b {
+        let word = word.trim().to_lowercase();
+        if word.is_empty() || word.chars().count() > 40 {
+            return Err(ApiErr::bad("alias words must be 1-40 characters"));
+        }
+        let mut emoji: Vec<String> = emoji
+            .into_iter()
+            .map(|e| e.replace('\u{fe0f}', ""))
+            .filter(|e| nookle_core::query::emoji_keywords(e).is_some())
+            .collect();
+        emoji.dedup();
+        app.set_alias(&word, Some(&emoji));
+    }
+    Ok(aliases_get(State(app), auth).await)
+}
+
+pub async fn aliases_delete(State(app): S, auth: Auth, Path(word): Path<String>) -> R<StatusCode> {
+    auth.need(Scope::Rw)?;
+    app.set_alias(&word.to_lowercase(), None);
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub async fn items_hit(State(app): S, _auth: Auth, Path(id): Path<String>) -> R<StatusCode> {
     app.update(&id, |r| {
         r.item.hits += 1;
@@ -573,7 +633,10 @@ pub async fn analysis_submit(
     app.leases.lock().unwrap().remove(&id);
     app.update(&id, |r| match b {
         AnalysisReport::Done { tags, text, style } => {
-            r.item.tags = clean_tags(r.item.tags.drain(..).chain(tags));
+            let old = std::mem::take(&mut r.ai_tags);
+            let kept = r.item.tags.drain(..).filter(|t| !old.contains(t));
+            r.ai_tags = clean_tags(tags);
+            r.item.tags = clean_tags(kept.chain(r.ai_tags.iter().cloned()));
             r.item.text = text;
             r.item.style = Some(style);
             r.item.analysis = Analysis::Done;

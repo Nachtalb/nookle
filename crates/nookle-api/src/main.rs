@@ -41,6 +41,16 @@ pub fn router(app: Arc<App>) -> Router {
         .route("/items/{id}/hit", post(routes::items_hit))
         .route("/items/{id}/analysis", post(routes::analysis_submit))
         .route("/analysis/claim", post(routes::analysis_claim))
+        .route("/analysis/requeue", post(routes::analysis_requeue))
+        .route("/items/{id}/reanalyse", post(routes::items_reanalyse))
+        .route(
+            "/aliases",
+            get(routes::aliases_get).put(routes::aliases_put),
+        )
+        .route(
+            "/aliases/{word}",
+            axum::routing::delete(routes::aliases_delete),
+        )
         .route("/tags", get(routes::tags))
         .route("/{*rest}", axum::routing::options(routes::cors_preflight))
         .layer(SetResponseHeaderLayer::overriding(
@@ -82,7 +92,7 @@ async fn main() -> Result<()> {
             .unwrap_or(1024)
             << 20,
     };
-    let (db, items) = state::open_db(&cfg)?;
+    let (db, items, aliases) = state::open_db(&cfg)?;
     tracing::info!(items = items.len(), "loaded");
     let workers = env("NOOKLE_WORKERS")
         .and_then(|v| v.parse().ok())
@@ -92,6 +102,7 @@ async fn main() -> Result<()> {
         cfg,
         db: Mutex::new(db),
         items: RwLock::new(items),
+        aliases: RwLock::new(aliases),
         leases: Mutex::new(HashMap::new()),
         http: reqwest::Client::new(),
         encode: tokio::sync::Semaphore::new(workers),

@@ -113,7 +113,7 @@ Whitespace-separated tokens, case-insensitive. All tokens must match (AND).
 | `march 2024` | added in March 2024 |
 | emoji, e.g. `😂` | matches any of the emoji's Telegram keywords (`assets/emoji_keywords_en.json`) or the emoji itself as a tag |
 | `"some phrase"` | literal: never a filter, matched as a phrase |
-| anything else | prefix match on tags, substring match on text and source author; an emoji tag also matches its exact keywords (`smirk` finds items tagged `😏`) |
+| anything else | prefix match on tags, substring match on text and source author; an emoji tag also matches its exact keywords (`smirk` finds items tagged `😏`) and the alias words mapped to it (`smug`, see below) |
 
 Month names are full English names only (`may` is a month, quote it to search
 for the word).
@@ -195,7 +195,28 @@ Report back with:
 {"tags": ["cat", "keyboard"], "text": "ocr text or empty", "style": "photo"}
 ```
 
-or `{"error": "why"}` to mark it `failed`.
+or `{"error": "why"}` to mark it `failed`. A new report replaces the tags the
+previous one added; tags added by hand stay.
+
+```
+POST /api/items/{id}/reanalyse               rw -> 200 Item (analysis = pending)
+POST /api/analysis/requeue                   rw -> 200 {"queued": n} (every ready item)
+```
+
+### Emotion aliases
+
+The tagger stores emotions and expressions as emoji. Its model names them
+freely (`smug`, `sobbing`); each word goes through this table, and words it
+doesn't know yet are mapped by the model once (against the whole emoji list,
+kept as a cached prompt prefix) and saved here. `[]` means no emoji fits; the
+word then stays a plain tag. Search maps a word through the table to emoji
+(never emoji back out to words), so `smug` finds items tagged `😏`.
+
+```
+GET    /api/aliases                          any -> {"aliases": {"smug": ["😏"], "meh": []}}
+PUT    /api/aliases  {"word": ["😏", ...]}   rw  -> same; adds/replaces, unknown emoji dropped
+DELETE /api/aliases/{word}                   rw  -> 204
+```
 
 ## Public (no auth, cached forever by Cloudflare)
 

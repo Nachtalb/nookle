@@ -35,6 +35,9 @@ impl Config {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Rec {
     pub item: Item,
+    /// Tags the last analysis added, so a re-analysis replaces them and keeps hand-made ones.
+    #[serde(default)]
+    pub ai_tags: Vec<String>,
     pub input_hash: String,
     pub phash: Vec<u64>,
 }
@@ -62,6 +65,8 @@ pub struct App {
     pub db: Mutex<Connection>,
     pub items: RwLock<HashMap<String, Rec>>,
     pub leases: Mutex<HashMap<String, Instant>>,
+    /// Emotion word -> emoji, learned by the tagger (`[]` = no emoji fits). Search maps words through it.
+    pub aliases: RwLock<HashMap<String, Vec<String>>>,
     pub http: reqwest::Client,
     pub fetcher: nookle_fetch::Fetcher,
     pub encode: tokio::sync::Semaphore,
@@ -98,7 +103,9 @@ pub fn fix_urls(item: &mut Item, base: &str) {
     item.page_url = format!("{base}/{id}");
 }
 
-pub fn open_db(cfg: &Config) -> Result<(Connection, HashMap<String, Rec>)> {
+pub type Aliases = HashMap<String, Vec<String>>;
+
+pub fn open_db(cfg: &Config) -> Result<(Connection, HashMap<String, Rec>, Aliases)> {
     std::fs::create_dir_all(cfg.media())?;
     std::fs::create_dir_all(cfg.tmp())?;
     let db = Connection::open(cfg.data.join("nookle.db"))?;
@@ -107,7 +114,8 @@ pub fn open_db(cfg: &Config) -> Result<(Connection, HashMap<String, Rec>)> {
          CREATE TABLE IF NOT EXISTS items (id TEXT PRIMARY KEY, rec TEXT NOT NULL);
          CREATE TABLE IF NOT EXISTS keys (id TEXT PRIMARY KEY, name TEXT NOT NULL, scope TEXT NOT NULL,
             hash TEXT NOT NULL UNIQUE, prefix TEXT NOT NULL, created_at TEXT NOT NULL, last_used_at TEXT);
-         CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, scope TEXT NOT NULL, key_id TEXT);",
+         CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, scope TEXT NOT NULL, key_id TEXT);
+         CREATE TABLE IF NOT EXISTS aliases (word TEXT PRIMARY KEY, emoji TEXT NOT NULL);",
     )?;
     let mut items = HashMap::new();
     {
@@ -122,9 +130,17 @@ pub fn open_db(cfg: &Config) -> Result<(Connection, HashMap<String, Rec>)> {
             items.insert(rec.item.id.clone(), rec);
         }
     }
+    let mut aliases = HashMap::new();
+    {
+        let mut st = db.prepare("SELECT word, emoji FROM aliases")?;
+        for row in st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))? {
+            let (word, emoji) = row?;
+            aliases.insert(word, serde_json::from_str(&emoji)?);
+        }
+    }
     let _ = std::fs::remove_dir_all(cfg.tmp());
     std::fs::create_dir_all(cfg.tmp())?;
-    Ok((db, items))
+    Ok((db, items, aliases))
 }
 
 impl App {
@@ -158,6 +174,27 @@ impl App {
         };
         self.save(&rec);
         Some(rec.item)
+    }
+
+    pub fn set_alias(&self, word: &str, emoji: Option<&[String]>) {
+        let db = self.db.lock().unwrap();
+        let mut aliases = self.aliases.write().unwrap();
+        let r = match emoji {
+            Some(e) => {
+                aliases.insert(word.into(), e.to_vec());
+                db.execute(
+                    "INSERT OR REPLACE INTO aliases (word, emoji) VALUES (?1, ?2)",
+                    params![word, serde_json::to_string(e).unwrap()],
+                )
+            }
+            None => {
+                aliases.remove(word);
+                db.execute("DELETE FROM aliases WHERE word = ?1", [word])
+            }
+        };
+        if let Err(e) = r {
+            tracing::error!(word, "saving alias: {e}");
+        }
     }
 
     pub fn get(&self, id: &str) -> Option<Rec> {

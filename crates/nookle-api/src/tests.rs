@@ -23,12 +23,13 @@ fn app() -> (Arc<App>, std::path::PathBuf) {
         cf_token: None,
         max_upload: 50 << 20,
     };
-    let (db, items) = open_db(&cfg).unwrap();
+    let (db, items, aliases) = open_db(&cfg).unwrap();
     let app = Arc::new(App {
         fetcher: nookle_fetch::Fetcher::new(nookle_fetch::Config::default()),
         cfg,
         db: Mutex::new(db),
         items: RwLock::new(items),
+        aliases: RwLock::new(aliases),
         leases: Mutex::new(Default::default()),
         http: reqwest::Client::new(),
         encode: tokio::sync::Semaphore::new(2),
@@ -271,6 +272,42 @@ async fn full_flow() {
     assert_eq!(it["analysis"], "done");
     assert_eq!(t.ids("anime 🥳 finally").await, vec![id.clone()]);
 
+    // learned aliases: a word finds the emoji it maps to; a re-analysis swaps only AI tags
+    let (_, a) = t
+        .json(
+            "PUT",
+            "/api/aliases",
+            Some(json!({"Smug": ["😏", "nope"], "meh": []})),
+        )
+        .await;
+    assert_eq!(a["aliases"], json!({"smug": ["😏"], "meh": []}));
+    assert!(t.ids("smug").await.is_empty());
+    t.json(
+        "PATCH",
+        &format!("/api/items/{id}"),
+        Some(json!({"tags": ["celebration", "mine"]})),
+    )
+    .await;
+    let (_, it) = t
+        .json("POST", &format!("/api/items/{id}/reanalyse"), None)
+        .await;
+    assert_eq!(it["analysis"], "pending");
+    let (_, it) = t
+        .json(
+            "POST",
+            &format!("/api/items/{id}/analysis"),
+            Some(json!({"tags": ["😏"], "text": "finally green", "style": "anime"})),
+        )
+        .await;
+    assert_eq!(it["tags"], json!(["mine", "😏"]));
+    assert_eq!(t.ids("smug").await, vec![id.clone()]);
+    assert_eq!(
+        ro_t.json("PUT", "/api/aliases", Some(json!({"x": []})))
+            .await
+            .0,
+        StatusCode::FORBIDDEN
+    );
+
     // hit + sort, patch, delete
     assert_eq!(
         ro_t.json(
@@ -323,7 +360,7 @@ async fn full_flow() {
     );
 
     // persistence: reopening the db gives the same items
-    let (_, reloaded) = open_db(&app.cfg).unwrap();
+    let (_, reloaded, _) = open_db(&app.cfg).unwrap();
     assert_eq!(reloaded.len(), app.items.read().unwrap().len());
     let _ = std::fs::remove_dir_all(dir);
 }

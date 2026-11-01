@@ -1,10 +1,12 @@
 use chrono::{DateTime, Utc};
+
+use crate::state::Aliases;
 use nookle_core::{
     model::{Item, ParsedQuery},
     query::emoji_keywords,
 };
 
-pub fn matches(it: &Item, pq: &ParsedQuery) -> bool {
+pub fn matches(it: &Item, pq: &ParsedQuery, aliases: &Aliases) -> bool {
     if !pq.kinds.is_empty() && !pq.kinds.contains(&it.kind) {
         return false;
     }
@@ -24,12 +26,15 @@ pub fn matches(it: &Item, pq: &ParsedQuery) -> bool {
         .collect::<Vec<_>>()
         .join(" ")
         .to_lowercase();
-    // An emoji tag (😏) also answers to its Telegram keywords (smirk), whole words only.
+    // An emoji tag (😏) also answers to its Telegram keywords (smirk) and to the words the tagger
+    // learned for it (smug), whole words only. Words map to emoji, never emoji back out to words.
     let tag_hit = |t: &str| {
+        let alias = aliases.get(t);
         it.tags.iter().any(|x| {
             x.starts_with(t)
                 || x.split(' ').any(|w| w.starts_with(t))
                 || emoji_keywords(x).is_some_and(|ks| ks.iter().any(|k| k == t))
+                || alias.is_some_and(|a| a.contains(x))
         })
     };
     if !pq
@@ -95,10 +100,13 @@ mod tests {
             "status": "ready", "analysis": "done", "telegram": null
         }))
         .unwrap();
-        let hit = |q: &str| matches(&it, &parse(q, Utc::now()));
+        let aliases = Aliases::from([("smug".to_string(), vec!["😏".to_string()])]);
+        let hit = |q: &str| matches(&it, &parse(q, Utc::now()), &aliases);
         assert!(hit("smirk"));
         assert!(hit("😏"));
         assert!(hit("cat smirk"));
+        assert!(hit("smug"));
+        assert!(!hit("smu"));
         assert!(!hit("smi"));
         assert!(!hit("dog"));
     }

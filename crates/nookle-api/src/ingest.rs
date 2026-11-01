@@ -98,6 +98,7 @@ pub async fn ingest(
         item: item.clone(),
         input_hash: hash,
         phash,
+        ai_tags: Vec::new(),
     };
     app.items.write().unwrap().insert(id.clone(), rec.clone());
     app.save(&rec);
