@@ -177,7 +177,6 @@ function card(it) {
     c.classList.add('busy');
     if (it.status === 'processing') c.querySelector('img').remove();
     c.append(el('span', { className: 'busy-veil' }, el('span', { className: 'spinner' }), el('span', { textContent: busy })));
-    watchBusy(it.id);
   }
   c.onclick = () => openItem(it.id);
   if (it.kind !== 'image') {
@@ -188,6 +187,8 @@ function card(it) {
     }
   }
   cards.set(it.id, c);
+  // after cards.set: watchBusy observes the card it finds there, so the poller sees it on screen
+  if (busy) watchBusy(it.id);
   return c;
 }
 
