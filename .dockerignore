@@ -1,2 +1,16 @@
-target/
-.git/
+# Allowlist: only what Dockerfile and Dockerfile.web read. Everything else (samples, mock,
+# docs, target, .git) stays out of the build context.
+*
+!Cargo.toml
+!Cargo.lock
+!crates/
+!assets/
+!scripts/fetch-emoji.sh
+!scripts/version-assets.sh
+!web/
+!web.toml
+!userscript/nookle.user.js
+**/target
+**/*.md
+web/emoji/
+web/*.test.js
