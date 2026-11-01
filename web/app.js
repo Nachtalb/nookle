@@ -33,6 +33,14 @@ async function api(path, opts = {}) {
 // With onTap the toast is a button (shown longer) that runs onTap and closes.
 function toast(msg, { onTap, ms } = {}) {
   const box = $('#toast');
+  // An open modal dialog sits above any z-index and makes the rest of the page inert, so the
+  // toasts live in the topmost open dialog. Moving elsewhere drops the old ones: they were
+  // about whatever that dialog showed.
+  const host = [...document.querySelectorAll('dialog[open]')].pop() || document.body;
+  if (box.parentNode !== host) {
+    box.replaceChildren();
+    host.append(box);
+  }
   let t = [...box.children].find((c) => c.textContent === msg);
   if (!t) {
     t = onTap
@@ -768,6 +776,7 @@ function applyRoute() {
 }
 
 addEventListener('popstate', applyRoute);
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('close', () => { if ($('#toast').parentNode === d) $('#toast').replaceChildren(); });
 
 // ---------- boot ----------
 

@@ -131,12 +131,14 @@ img.emoji { width: 1.25em; height: 1.25em; vertical-align: -.25em; display: inli
 .mini img { width: 2em; height: 2em; object-fit: cover; border-radius: 4px; }
 h3 { margin: 1.2em 0 .4em; }
 #toast {
-  position: fixed; left: 50%; bottom: max(1.5em, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 10;
+  position: fixed; inset: auto auto max(1.5em, env(safe-area-inset-bottom)) 50%; transform: translateX(-50%); z-index: 10;
+  margin: 0; padding: 0;
   display: flex; flex-direction: column; align-items: center; gap: .4em; pointer-events: none;
 }
-.toast { background: var(--fg); color: var(--bg); padding: .5em 1em; border-radius: 99px; font-weight: 600;
-  max-width: 90vw; text-align: center; animation: toast-in .15s ease-out; }
-.toast.action { pointer-events: auto; cursor: pointer; border: 0; font: inherit; font-weight: 600;
+.toast { background: var(--fg); color: var(--bg); padding: .3em .8em; border-radius: 99px; font-size: .8em; font-weight: 500;
+  max-width: min(85vw, 22em); text-align: center; line-height: 1.3; animation: toast-in .15s ease-out;
+  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.toast.action { pointer-events: auto; cursor: pointer; border: 0; font-family: inherit; font-weight: 600;
   background: var(--accent); color: #000; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(.5em); } }
 
