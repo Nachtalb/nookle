@@ -30,7 +30,7 @@
       <span class="badge" id="scope"></span>
       <span class="spacer"></span>
       <button class="rw" id="open-upload" title="Upload">＋ Add</button>
-      <button class="admin" id="open-keys">Keys</button>
+      <button class="admin" id="open-keys">Settings</button>
       <button id="logout" title="Log out">⎋</button>
     </div>
     <input id="q" type="search" placeholder="Search: cat gif new 😂 &quot;some phrase&quot;" autocomplete="off" enterkeyhint="search">
@@ -96,7 +96,11 @@
 </dialog>
 
 <dialog id="keys">
-  <div class="dlg-head"><span>API keys</span><button class="close" value="close">✕</button></div>
+  <div class="dlg-head"><span>Settings</span><button class="close" value="close">✕</button></div>
+  <h3>Blocked tags</h3>
+  <p class="muted">The tagger never adds these. Blocking a tag also removes it from every item.</p>
+  <div id="blocked"></div>
+  <h3>API keys</h3>
   <form id="key-form" class="row">
     <input name="name" placeholder="Name" required>
     <select name="scope"><option>ro</option><option>rw</option></select>

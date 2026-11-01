@@ -653,6 +653,23 @@ $('#new-key-copy').onclick = async () => {
   toast('Key copied');
 };
 
+async function loadBlocked() {
+  try {
+    const r = await api('/blocked-tags');
+    $('#blocked').replaceChildren(tagEditor(r.tags, {
+      onChange: async (tags) => {
+        try {
+          const saved = (await api('/blocked-tags', { method: 'PUT', json: { tags } })).tags;
+          search();
+          return saved;
+        } catch (err) { toast(err.message); }
+      },
+    }));
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
 // ---------- routing ----------
 // The URL holds the search (?q=&sort=) and the open overlay (&item=<id> or &view=add|keys),
 // so items can be linked and Back closes what was opened.
@@ -704,7 +721,7 @@ function applyRoute() {
   for (const [view, d] of Object.entries(dialogs)) {
     if (!r.item && r.view === view) {
       if (!d.open) {
-        if (view === 'keys') { $('#new-key').hidden = true; loadKeys(); }
+        if (view === 'keys') { $('#new-key').hidden = true; loadKeys(); loadBlocked(); }
         d.showModal();
       }
     } else if (d.open) d.close();
