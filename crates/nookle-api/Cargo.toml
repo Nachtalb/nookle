@@ -8,3 +8,20 @@ publish.workspace = true
 
 [dependencies]
 nookle-core.workspace = true
+nookle-media.workspace = true
+nookle-fetch.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+reqwest.workspace = true
+axum = { version = "0.8", features = ["multipart"] }
+tower-http = { version = "0.6", features = ["fs", "set-header"] }
+tower = { version = "0.5", features = ["util"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+blake3 = "1"
+getrandom = "0.3"
+sha2 = "0.10"
