@@ -78,3 +78,22 @@ export function splitEmoji(text) {
   }
   return { emoji, rest: emoji.length ? rest.replace(/\s+/g, ' ').trimStart() : rest };
 }
+
+/** Splits `text` into [{text, hit}] runs, `hit` where one of `pieces` occurs (case-insensitive). */
+export function markSegments(text, pieces = []) {
+  const lower = text.toLowerCase();
+  const hit = new Array(text.length).fill(false);
+  for (const p of pieces) {
+    if (!p) continue;
+    for (let i = lower.indexOf(p.toLowerCase()); i >= 0; i = lower.indexOf(p.toLowerCase(), i + 1)) {
+      hit.fill(true, i, i + p.length);
+    }
+  }
+  const out = [];
+  for (let i = 0; i < text.length; i++) {
+    const last = out[out.length - 1];
+    if (last && last.hit === hit[i]) last.text += text[i];
+    else out.push({ text: text[i], hit: hit[i] });
+  }
+  return out;
+}

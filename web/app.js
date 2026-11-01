@@ -1,4 +1,4 @@
-import { chips, parseTags, parseLines, fmtSize, fmtDuration, fmtDate, rankSuggestions, splitEmoji } from './lib.js';
+import { chips, parseTags, parseLines, fmtSize, fmtDuration, fmtDate, rankSuggestions, splitEmoji, markSegments } from './lib.js';
 import { emojify, emojiNames } from './emoji.js';
 
 const $ = (s) => document.querySelector(s);
@@ -121,6 +121,9 @@ async function search() {
   await loadMore();
 }
 
+// Per item id, what matched the current search (tags and text pieces), for highlighting.
+const highlights = new Map();
+
 async function loadMore() {
   if (loading || cursor === null) return;
   loading = true;
@@ -134,6 +137,8 @@ async function loadMore() {
   if (my !== gen) return loadMore();
   if (error) return ($('#grid-status').textContent = error.message);
   cursor = r.next_cursor;
+  if (!p.has('cursor')) highlights.clear();
+  for (const [id, h] of Object.entries(r.highlights || {})) highlights.set(id, h);
   $('#chips').replaceChildren(...chips(r.query).map((c) => emojify(el('span', { className: 'chip ' + c.type }), c.label)));
   for (const it of r.items) $('#grid').append(card(it));
   $('#grid-status').textContent = cards.size ? '' : 'Nothing found';
@@ -254,7 +259,9 @@ function showItem(it) {
       : el('img', { src: it.url, alt: it.text });
   $('#item-media').replaceChildren(m);
   const row = (k, v) => v || v === 0 ? [el('dt', { textContent: k }), el('dd', {}, v)] : [];
+  const hl = (route().q && highlights.get(it.id)) || { tags: [], text: [] };
   const tags = tagEditor(it.tags, {
+    hits: hl.tags,
     onClick: (t) => { nav({ q: t, item: null }, true); applyRoute(); },
     onChange: canWrite() ? (next) => saveTags(it.id, next) : null,
     onRemove: canWrite() ? offerBlock : null,
@@ -263,7 +270,7 @@ function showItem(it) {
     el('div', {}, el('a', { href: s.url, target: '_blank', rel: 'noopener', textContent: s.author ? `${s.site}: @${s.author}` : s.url })))) : null;
   $('#item-info').replaceChildren(
     tags,
-    it.text ? emojify(el('p', { className: 'text' }), it.text) : '',
+    it.text ? markedText(it.text, hl.text) : '',
     el('dl', {},
       ...row('Kind', [it.kind, it.width && `${it.width}×${it.height}`, fmtDuration(it.duration_ms), it.has_audio ? 'sound' : '', fmtSize(it.size)].filter(Boolean).join(' · ')),
       ...row('Style', it.style || '—'),
@@ -272,6 +279,13 @@ function showItem(it) {
       ...row('Added', fmtDate(it.added_at)),
       ...row('Last used', fmtDate(it.last_used_at)),
       ...row('Status', `${it.status} · analysis ${it.analysis}`)));
+}
+
+// The item text with the pieces that matched the search wrapped in <mark>.
+function markedText(text, pieces) {
+  const p = el('p', { className: 'text' });
+  for (const s of markSegments(text, pieces)) p.append(s.hit ? emojify(el('mark'), s.text) : emojify(el('span'), s.text));
+  return p;
 }
 
 async function saveTags(id, tags) {
@@ -289,7 +303,7 @@ async function saveTags(id, tags) {
 // which saves switching to the letter keyboard after typing emoji). An autocomplete list offers
 // known tags and emoji by name; picking an entry adds it at once.
 // onChange(tags) may return the saved list to show; without it the editor is read-only.
-function tagEditor(initial, { onClick, onChange, onRemove }) {
+function tagEditor(initial, { onClick, onChange, onRemove, hits = [] }) {
   let tags = [...initial];
   const box = el('div', { className: 'chips tag-editor' });
   const input = el('input', { className: 'tag-input', placeholder: 'add tag…', enterKeyHint: 'done', autocomplete: 'off' });
@@ -345,7 +359,7 @@ function tagEditor(initial, { onClick, onChange, onRemove }) {
   function render() {
     for (const c of [...box.children]) if (c !== field) c.remove();
     const chipEls = tags.map((t) => {
-      const chip = el('span', { className: 'chip term' });
+      const chip = el('span', { className: 'chip term' + (hits.includes(t) ? ' hit' : '') });
       const label = emojify(el('button', { type: 'button', className: 'chip-label', title: t }), t);
       if (onClick) label.onclick = () => onClick(t);
       chip.append(label);
