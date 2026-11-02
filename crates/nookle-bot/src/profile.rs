@@ -47,10 +47,10 @@ async fn text(bot: &Bot, user: &str) -> ResponseResult<()> {
     let commands = Command::bot_commands();
     let current = bot.get_my_commands().await?;
     let same = current.len() == commands.len()
-        && current
-            .iter()
-            .zip(&commands)
-            .all(|(a, b)| a.command == b.command && a.description == b.description);
+        && current.iter().zip(&commands).all(|(a, b)| {
+            // bot_commands() keeps the leading "/", Telegram returns them without
+            a.command == b.command.trim_start_matches('/') && a.description == b.description
+        });
     if !same {
         bot.set_my_commands(commands).await?;
         info!("set commands");
