@@ -30,12 +30,16 @@ use teloxide::{
 use tokio::io::AsyncWriteExt;
 use tracing::warn;
 
+mod profile;
+
 const CLOUD_DOWNLOAD_CAP: u32 = 20 * 1024 * 1024;
 
 #[derive(BotCommands, Clone)]
 #[command(rename_rule = "lowercase")]
 enum Command {
+    #[command(description = "what this bot does")]
     Start,
+    #[command(description = "how to add and search memes")]
     Help,
 }
 
@@ -119,6 +123,8 @@ async fn main() -> Result<()> {
         bot = bot.set_api_url(url.parse()?);
     }
     tracing::info!(api = %bot.api_url(), "starting");
+    let me = bot.get_me().await?;
+    profile::sync(&bot, &me).await;
 
     let handler = dptree::entry()
         .branch(Update::filter_inline_query().endpoint(inline))
