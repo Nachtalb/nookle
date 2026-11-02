@@ -136,6 +136,8 @@ img.emoji { width: 1.25em; height: 1.25em; vertical-align: -.25em; display: inli
 }
 .drop.over { border-color: var(--accent); color: var(--accent); }
 .queue, .keys { list-style: none; padding: 0; margin: .5em 0; display: grid; gap: .4em; }
+/* minmax(0,…): a long file name is cut off with … instead of widening the dialog */
+.queue, .keys { grid-template-columns: minmax(0, 1fr); }
 .queue li, .keys li {
   display: flex; flex-wrap: wrap; align-items: center; gap: .5em; background: var(--panel); padding: .5em .7em; border-radius: 8px;
 }
