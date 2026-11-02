@@ -41,4 +41,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: node --test web/*.test.js userscript/test/*.test.js
+      - uses: oven-sh/setup-bun@v2
+      - run: bun test web/ userscript/test/
