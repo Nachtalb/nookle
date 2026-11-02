@@ -1,8 +1,12 @@
 // ==UserScript==
 // @name         Nookle: add x.com posts
 // @namespace    https://n.naa.gg
-// @version      0.1.0
+// @version      0.2.0
 // @description  Adds an "Add to Nookle" button to x.com posts with media
+// @homepageURL  https://github.com/Nachtalb/nookle/tree/main/userscript
+// @supportURL   https://github.com/Nachtalb/nookle/issues
+// @updateURL    https://raw.githubusercontent.com/Nachtalb/nookle/main/userscript/nookle.user.js
+// @downloadURL  https://raw.githubusercontent.com/Nachtalb/nookle/main/userscript/nookle.user.js
 // @match        https://x.com/*
 // @match        https://twitter.com/*
 // @match        https://mobile.x.com/*

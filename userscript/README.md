@@ -9,8 +9,8 @@ green checkmark marks posts added in this session.
 ## Install
 
 1. Install Tampermonkey or Violentmonkey (desktop or Edge on Android).
-2. Create a new script and paste `nookle.user.js` into it, or drag the file
-   into the manager's dashboard.
+2. Open [nookle.user.js](https://raw.githubusercontent.com/Nachtalb/nookle/main/userscript/nookle.user.js) and let the manager install it. It updates
+   itself from there whenever `@version` goes up.
 3. Open x.com and click the button on any post. The first click asks for an
    rw API key (`nk_...`, create one in the Nookle web UI).
 
@@ -22,7 +22,7 @@ The manager's menu has "Set Nookle API key" and "Set Nookle API URL"
 ## Tests
 
 ```sh
-node --test userscript/test/
+bun test userscript/test/
 ```
 
 The `*-article.html` fixtures are real (logged-out) x.com post markup with
