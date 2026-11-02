@@ -198,8 +198,14 @@ function animate(c, on) {
 }
 
 function card(it) {
+  // A card rebuilt for a status or tag change keeps the old card's loaded image: a fresh <img>
+  // shows the dark background until it decodes again, which made previews flash during uploads.
+  const prev = cards.get(it.id)?.querySelector('img');
+  const img = prev?.complete && prev.src === new URL(it.thumb_url, location.href).href ? prev
+    : el('img', { src: it.thumb_url, loading: 'lazy' });
+  img.alt = it.text || it.tags.join(', ');
   const c = el('button', { className: 'card', title: it.tags.join(', ') },
-    el('img', { src: it.thumb_url, alt: it.text || it.tags.join(', '), loading: 'lazy' }),
+    img,
     it.kind !== 'image' ? el('span', { className: 'kind', textContent: it.kind === 'gif' ? 'GIF' : '▶ ' + fmtDuration(it.duration_ms) }) : null);
   c._item = it;
   if (it.width && it.height) c.style.aspectRatio = `${it.width} / ${it.height}`;
