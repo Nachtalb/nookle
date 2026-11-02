@@ -70,10 +70,10 @@ async fn avatar(bot: &Bot, me_id: UserId) -> anyhow::Result<()> {
     {
         return Ok(());
     }
-    // setMyProfilePhoto is newer than teloxide 0.17
+    // setMyProfilePhoto is newer than teloxide 0.17. "./" keeps "bot123:" from parsing as a scheme.
     let url = bot
         .api_url()
-        .join(&format!("bot{}/setMyProfilePhoto", bot.token()))?;
+        .join(&format!("./bot{}/setMyProfilePhoto", bot.token()))?;
     let form = reqwest::multipart::Form::new()
         .text("photo", r#"{"type":"static","photo":"attach://avatar"}"#)
         .part(
