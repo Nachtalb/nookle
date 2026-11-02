@@ -78,7 +78,7 @@ pub async fn probe(input: &Path) -> Result<Probe> {
         &[
             "-count_packets",
             "-show_entries",
-            "format=duration:stream=codec_type,codec_name,width,height,nb_read_packets:stream_disposition=attached_pic:stream_side_data=rotation",
+            "format=duration,format_name:stream=codec_type,codec_name,width,height,nb_read_packets:stream_disposition=attached_pic:stream_side_data=rotation",
             "-of",
             "json",
         ],
@@ -97,10 +97,19 @@ pub async fn probe(input: &Path) -> Result<Probe> {
                 && s["disposition"]["attached_pic"] != 1
         })
         .ok_or_else(|| Error::Unsupported("no video stream".into()))?;
-    let frames: u64 = v["nb_read_packets"]
+    // Image pipes (PNG, JPEG, ...) read bytes after the end of the image as more "frames": phone
+    // apps and Telegram append such junk, and the bad second frame broke the hashing. Only WebP's
+    // pipe can really be animated (GIF and APNG have their own demuxers).
+    let still = j["format"]["format_name"]
         .as_str()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0);
+        .is_some_and(|f| f.ends_with("_pipe") && f != "webp_pipe");
+    let frames: u64 = match still {
+        true => 1,
+        false => v["nb_read_packets"]
+            .as_str()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0),
+    };
     let has_audio = streams.iter().any(|s| s["codec_type"] == "audio");
     let animated_image = matches!(v["codec_name"].as_str(), Some("gif" | "apng" | "webp_anim"));
     let mut duration = j["format"]["duration"]

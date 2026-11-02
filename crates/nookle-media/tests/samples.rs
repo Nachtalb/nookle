@@ -177,6 +177,35 @@ async fn samples() {
         "halfway in a 2 s clip"
     );
 
+    // bytes after the end of a PNG or JPEG are a still image, not a second frame
+    for name in ["photo.jpg", "trailing.png"] {
+        let src = out.join(format!("junk_{name}"));
+        let mut bytes = match name {
+            "photo.jpg" => std::fs::read(input(name)).unwrap(),
+            _ => {
+                std::process::Command::new("ffmpeg")
+                    .args([
+                        "-v",
+                        "error",
+                        "-f",
+                        "lavfi",
+                        "-i",
+                        "testsrc=s=64x48:d=1",
+                        "-frames:v",
+                        "1",
+                    ])
+                    .args(["-f", "image2pipe", "-c:v", "png", "-"])
+                    .output()
+                    .unwrap()
+                    .stdout
+            }
+        };
+        bytes.extend_from_slice(&[0x13, 0x37, 0, 0, 0, 0, 0xff, 0xfe]);
+        std::fs::write(&src, bytes).unwrap();
+        assert_eq!(probe(&src).await.unwrap().kind, Kind::Image, "{name}");
+        assert_eq!(phash(&src).await.unwrap().len(), 1, "{name}");
+    }
+
     for (name, want) in [
         ("dance.gif", Some("h264")),
         ("silent_short.mp4", Some("h264")),
