@@ -39,14 +39,19 @@ FROM rust:1-alpine AS chef
 RUN apk add --no-cache musl-dev && cargo install cargo-chef --locked --version 0.1.78
 WORKDIR /src
 
+# Only what the Rust build reads: the web app, userscript and scripts share the build context
+# (for Dockerfile.web) but must not invalidate these layers, or a JS change recompiles Rust.
 FROM chef AS plan
-COPY . .
+COPY Cargo.toml Cargo.lock ./
+COPY crates crates
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS build
 COPY --from=plan /src/recipe.json recipe.json
 RUN cargo chef cook --release --locked -p nookle-api -p nookle-bot -p nookle-tagger --recipe-path recipe.json
-COPY . .
+COPY Cargo.toml Cargo.lock ./
+COPY crates crates
+COPY assets assets
 RUN cargo build --release --locked -p nookle-api -p nookle-bot -p nookle-tagger \
  && mkdir -p /out/data && mkdir -m 1777 /out/tmp \
  && cp target/release/nookle-api target/release/nookle-bot target/release/nookle-tagger /out/
