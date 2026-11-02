@@ -97,6 +97,10 @@ fn esc(s: &str) -> String {
         .replace('>', "&gt;")
 }
 
+// Like the browser's own image view: an image bigger than the window fits it and a click shows it
+// at full size, scrolled to where it was clicked (browser zoom can't enlarge a fitted image).
+const ZOOM: &str = "const i=document.querySelector('img');if(i){const s=()=>i.classList.toggle('fit',!i.classList.contains('full')&&(i.naturalWidth>innerWidth||i.naturalHeight>innerHeight));i.complete?s():i.onload=s;onresize=s;i.onclick=e=>{if(!i.classList.contains('fit')&&!i.classList.contains('full'))return;const x=e.offsetX/i.width,y=e.offsetY/i.height;i.classList.toggle('full');s();if(i.classList.contains('full'))scrollTo(x*i.naturalWidth-innerWidth/2,y*i.naturalHeight-innerHeight/2)}}";
+
 fn page(it: &nookle_core::model::Item) -> Response {
     let title = esc(&if it.tags.is_empty() {
         it.id.clone()
@@ -133,8 +137,8 @@ fn page(it: &nookle_core::model::Item) -> Response {
     Html(format!(
         r#"<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title>
 <meta property="og:title" content="{title}">{og}<meta name="twitter:card" content="summary_large_image">
-<style>html,body{{margin:0;height:100%;background:#111}}body{{display:grid;place-items:center}}img,video{{max-width:100vw;max-height:100dvh}}</style>
-</head><body>{media}</body></html>"#
+<style>html,body{{margin:0;height:100%;background:#111}}body{{display:grid;place-items:center}}img,video{{max-width:100vw;max-height:100dvh}}img.fit{{cursor:zoom-in}}img.full{{max-width:none;max-height:none;cursor:zoom-out}}body:has(.full){{display:block;width:max-content;height:auto}}</style>
+</head><body>{media}<script>{ZOOM}</script></body></html>"#
     ))
     .into_response()
 }
