@@ -208,7 +208,6 @@ function card(it) {
     img,
     it.kind !== 'image' ? el('span', { className: 'kind', textContent: it.kind === 'gif' ? 'GIF' : '▶ ' + fmtDuration(it.duration_ms) }) : null);
   c._item = it;
-  if (it.width && it.height) c.style.aspectRatio = `${it.width} / ${it.height}`;
   const busy = busyLabel(it);
   if (busy) {
     // Plex-style: dimmed poster, light sweep, spinner + label until the server is done with it.
