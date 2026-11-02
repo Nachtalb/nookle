@@ -975,8 +975,14 @@ function nav(patch, push = false) {
   } else if (r.view) p.set('view', r.view);
   const url = '/' + (p.size ? '?' + p : '');
   if (url === location.pathname + location.search) return;
-  // `pushed` marks overlay entries we created, so closing can go Back instead of stacking.
-  if (push) history.pushState({ pushed: true }, '', url);
+  // `pushed` counts the overlay entries we stacked (item, then its edit mode), so closing goes
+  // back past all of them: stepping out of edit mode to the next item only replaces the edit
+  // entry, and a single Back from there reopened the item before it.
+  if (push) {
+    // a pushed gallery entry (e.g. searching a tag from an item) starts a new stack
+    const depth = r.item || r.view ? (Number(history.state?.pushed) || 0) + 1 : 0;
+    history.pushState({ pushed: depth }, '', url);
+  }
   else history.replaceState(history.state, '', url);
 }
 
@@ -988,7 +994,8 @@ function openView(view) {
 function closeOverlay() {
   const r = route();
   if (!r.item && !r.view) return;
-  if (history.state?.pushed) history.back();
+  const depth = Number(history.state?.pushed) || 0;
+  if (depth) history.go(-depth);
   else { nav({ item: null, view: null }); applyRoute(); }
 }
 
