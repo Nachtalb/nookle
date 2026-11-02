@@ -311,6 +311,7 @@ function showItem(it) {
   if (opened && desktop.matches) queueMicrotask(() => $('#item-info .tag-input')?.focus());
   setEditing(false);
   showReviewed(it);
+  showUndo();
   $('#item-title').textContent = it.id;
   const m = it.status !== 'ready' ? el('p', { className: 'muted', textContent: it.status === 'failed' ? 'Failed: ' + it.error : 'Processing…' })
     : it.mime === 'video/mp4' ? el('video', { src: it.url, controls: true, loop: true, playsInline: true, autoplay: true })
@@ -348,11 +349,51 @@ function markedText(text, pieces) {
   return p;
 }
 
-async function saveTags(id, tags) {
+// Undo/redo of tag changes, per item, in this tab only. Every save pushes the list it replaced.
+const tagHistory = new Map();
+const history_ = (id) => tagHistory.get(id) || tagHistory.set(id, { undo: [], redo: [] }).get(id);
+function showUndo() {
+  const h = current && tagHistory.get(current.id);
+  $('#item-undo').disabled = !h?.undo.length;
+  $('#item-redo').disabled = !h?.redo.length;
+}
+async function undoTags(dir) {
+  const it = current;
+  if (!it || !canWrite()) return;
+  const h = history_(it.id), from = dir < 0 ? h.undo : h.redo, to = dir < 0 ? h.redo : h.undo;
+  if (!from.length) return;
+  const target = from.pop();
+  to.push(it.tags);
+  const saved = await saveTags(it.id, target, false);
+  if (saved && current?.id === it.id) $('#item-info .tag-editor')?.setTags(saved);
+  else if (!saved) { to.pop(); from.push(target); }
+  showUndo();
+}
+$('#item-undo').onclick = () => undoTags(-1);
+$('#item-redo').onclick = () => undoTags(1);
+// Ctrl/⌘+Z undoes, Ctrl/⌘+Shift+Z or Ctrl+Y redoes. In a field with text the browser's own
+// text undo keeps working.
+document.addEventListener('keydown', (e) => {
+  if (!$('#item').open || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k !== 'z' && k !== 'y') return;
+  const f = e.target.closest?.('input, textarea, select');
+  if (f && (f.value || !f.classList.contains('tag-input'))) return;
+  e.preventDefault();
+  undoTags(k === 'y' || e.shiftKey ? 1 : -1);
+});
+
+async function saveTags(id, tags, record = true) {
+  const before = current?.id === id ? current.tags : null;
   try {
     const it = await api('/items/' + id, { method: 'PATCH', json: { tags } });
+    if (record && before && before.join('\n') !== it.tags.join('\n')) {
+      const h = history_(id);
+      h.undo.push(before);
+      h.redo = [];
+    }
     cards.get(it.id)?.replaceWith(card(it));
-    if (current?.id === it.id) { current = it; showReviewed(it); return it.tags; }
+    if (current?.id === it.id) { current = it; showReviewed(it); showUndo(); return it.tags; }
   } catch (err) {
     toast(err.message);
     if (current?.id === id) showItem(current);
@@ -492,6 +533,8 @@ function tagEditor(initial, { onClick, onChange, onRemove, hits = [] }) {
   }
   render();
   box.tags = () => tags;
+  // for undo/redo: show a tag list that was saved elsewhere
+  box.setTags = (next) => { tags = [...next]; render(); };
   return box;
 }
 
