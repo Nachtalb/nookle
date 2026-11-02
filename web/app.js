@@ -633,9 +633,15 @@ function leaveEdit() {
   if (route().edit && history.state?.pushed) history.back();
   else { nav({ edit: null }); setEditing(false); }
 }
-// The pencil toggles: a second tap leaves edit mode without saving.
+function editChanged() {
+  const f = $('#edit-form'), it = current;
+  return f.text.value !== it.text || f.style.value !== (it.style || '')
+    || f.sources.value.trim() !== it.sources.map((s) => s.url).join('\n');
+}
+// The pencil toggles like a "done" button: a second tap saves what changed and leaves edit mode.
+// Only Cancel (or Esc / Back) throws the changes away.
 $('#item-edit').onclick = () => {
-  if (!$('#edit-form').hidden) return leaveEdit();
+  if (!$('#edit-form').hidden) return editChanged() ? $('#edit-form').requestSubmit() : leaveEdit();
   nav({ edit: '1' }, true);
   applyRoute();
 };
