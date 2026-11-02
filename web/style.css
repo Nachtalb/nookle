@@ -162,6 +162,10 @@ h3 { margin: 1.2em 0 .4em; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(.5em); } }
 
 .media-wrap { position: relative; }
+/* Swipes here step through items. Without this the browser also reads a sideways swipe as its own
+   back/forward gesture and, after leaving edit mode, jumps "forward" into that edit entry again. */
+html, body, #item, .media-wrap { overscroll-behavior-x: none; }
+.media-wrap { touch-action: pan-y pinch-zoom; }
 .step { position: absolute; top: 50%; transform: translateY(-50%); width: 1.9em; height: 1.9em; padding: 0 0 .1em;
   border: 0; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 1.5em; line-height: 1; z-index: 2;
   display: grid; place-items: center; }
