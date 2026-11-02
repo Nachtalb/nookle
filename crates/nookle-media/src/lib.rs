@@ -78,7 +78,7 @@ pub async fn probe(input: &Path) -> Result<Probe> {
         &[
             "-count_packets",
             "-show_entries",
-            "format=duration,format_name:stream=codec_type,codec_name,width,height,nb_read_packets:stream_disposition=attached_pic:stream_side_data=rotation",
+            "format=duration,format_name:stream=codec_type,codec_name,width,height,duration,nb_read_packets:stream_disposition=attached_pic:stream_side_data=rotation",
             "-of",
             "json",
         ],
@@ -112,9 +112,10 @@ pub async fn probe(input: &Path) -> Result<Probe> {
     };
     let has_audio = streams.iter().any(|s| s["codec_type"] == "audio");
     let animated_image = matches!(v["codec_name"].as_str(), Some("gif" | "apng" | "webp_anim"));
-    let mut duration = j["format"]["duration"]
-        .as_str()
-        .and_then(|s| s.parse::<f64>().ok());
+    // The video stream's own length: the container's can be longer (subtitles or audio running
+    // past the picture), and seeking past the last frame gives nothing to hash or thumbnail.
+    let secs = |v: &Value| v.as_str().and_then(|s| s.parse::<f64>().ok());
+    let mut duration = secs(&v["duration"]).or_else(|| secs(&j["format"]["duration"]));
     if duration.is_none() && frames > 1 {
         // Animated WebP has no container duration.
         duration = packets(input)

@@ -177,6 +177,35 @@ async fn samples() {
         "halfway in a 2 s clip"
     );
 
+    // sound (or subtitles) running 2 s past the picture: the hashes and the still come from the
+    // video itself
+    let subbed = out.join("long_sound.mp4");
+    assert!(
+        std::process::Command::new("ffmpeg")
+            .args([
+                "-v",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=s=320x240:r=10:d=2"
+            ])
+            .args([
+                "-f", "lavfi", "-i", "sine=d=4", "-c:v", "libx264", "-c:a", "aac"
+            ])
+            .arg(&subbed)
+            .status()
+            .unwrap()
+            .success()
+    );
+    let p = probe(&subbed).await.unwrap();
+    assert!(p.duration_ms.unwrap() <= 2100, "{:?}", p.duration_ms);
+    assert_eq!(phash(&subbed).await.unwrap().len(), 3);
+    let s = normalize(&subbed, &out, "subbed").await.unwrap();
+    thumbnail(&s.path, &out.join("subbed_thumb.webp"))
+        .await
+        .unwrap();
+
     // bytes after the end of a PNG or JPEG are a still image, not a second frame
     for name in ["photo.jpg", "trailing.png"] {
         let src = out.join(format!("junk_{name}"));
