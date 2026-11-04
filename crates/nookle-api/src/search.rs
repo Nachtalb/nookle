@@ -190,6 +190,22 @@ mod tests {
     }
 
     #[test]
+    fn term_matches_inside_a_tag_word() {
+        let it: Item = serde_json::from_value(serde_json::json!({
+            "id": "abcd1234", "kind": "image", "mime": "image/webp",
+            "url": "u", "thumb_url": "t", "page_url": "p", "width": 1, "height": 1,
+            "duration_ms": null, "has_audio": false, "size": 1, "style": null,
+            "tags": ["nosebleed", "anime girl"], "text": "", "sources": [], "hits": 0,
+            "added_at": "2026-10-30T12:00:00Z", "last_used_at": null,
+            "status": "ready", "analysis": "done", "telegram": null
+        }))
+        .unwrap();
+        let pq = parse("bleed", Utc::now());
+        assert!(matches(&it, &pq, &Aliases::new()));
+        assert_eq!(highlight(&it, &pq, &Aliases::new()).tags, ["nosebleed"]);
+    }
+
+    #[test]
     fn flag_emoji_finds_its_country_not_every_flag() {
         let item = |tags: &[&str]| -> Item {
             serde_json::from_value(serde_json::json!({
