@@ -329,7 +329,7 @@ def matches(it, pq):
     authors = " ".join((s.get("author") or "").lower() for s in it["sources"])
     hay = " ".join(tags) + " " + text
     for t in pq["terms"]:
-        if not (any(x.startswith(t) or (" " + t) in (" " + x) for x in tags) or t in text or t in authors):
+        if not (any(t in x for x in tags) or t in text or t in authors):
             return False
     for p in pq["phrases"]:
         if p not in hay:
@@ -578,7 +578,7 @@ def items_list(h):
     pq_out = dict(pq, added_after=iso(pq["added_after"]), added_before=iso(pq["added_before"]))
     hl = {}
     for it in page:
-        tags = [t for t in it["tags"] if any(w.startswith(term) for term in pq["terms"] for w in [t, *t.split(" ")])]
+        tags = [t for t in it["tags"] if any(term in t for term in pq["terms"])]
         text = [term for term in pq["terms"] if term in it["text"].lower()]
         if tags or text:
             hl[it["id"]] = {"tags": tags, "text": text}

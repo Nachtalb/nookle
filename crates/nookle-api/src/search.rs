@@ -31,8 +31,7 @@ pub fn matches(it: &Item, pq: &ParsedQuery, aliases: &Aliases) -> bool {
     let tag_hit = |t: &str| {
         let alias = aliases.get(t);
         it.tags.iter().any(|x| {
-            x.starts_with(t)
-                || x.split(' ').any(|w| w.starts_with(t))
+            x.contains(t)
                 || emoji_keywords(x).is_some_and(|ks| ks.iter().any(|k| k == t))
                 || alias.is_some_and(|a| a.contains(x))
         })
@@ -74,8 +73,7 @@ pub fn highlight(it: &Item, pq: &ParsedQuery, aliases: &Aliases) -> Highlight {
         it.tags
             .iter()
             .filter(|x| {
-                x.starts_with(t.as_str())
-                    || x.split(' ').any(|w| w.starts_with(t.as_str()))
+                x.contains(t.as_str())
                     || emoji_keywords(x).is_some_and(|ks| ks.iter().any(|k| k == t))
                     || alias.is_some_and(|a| a.contains(x))
             })
